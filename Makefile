@@ -27,7 +27,17 @@ test-network: ## прогнать тесты, которые ходят в ин�
 lint: ## проверить стиль кода
 	.venv/bin/ruff check .
 
-deploy: ## выложить на сервер
+rewrite: ## переписать витрину под все тона (нужна модель)
+	$(PY) -m pipeline.cli rewrite
+
+cycle: ## полный проход: собрать, отобрать, переписать
+	$(PY) -m pipeline.cli cycle
+	$(PY) -m pipeline.cli rewrite
+
+deploy: ## выложить код на сервер
 	./scripts/deploy.sh
 
-.PHONY: help venv dev check-sources ingest test test-network lint deploy
+publish: ## отправить снимок готовой базы на сервер
+	./scripts/publish.sh
+
+.PHONY: help venv dev check-sources ingest rewrite cycle test test-network lint deploy publish
