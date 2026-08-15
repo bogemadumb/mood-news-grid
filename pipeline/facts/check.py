@@ -5,6 +5,40 @@ from .fc import (parse_doc, extract_numbers, extract_dates, extract_entities, ex
                 NEG, HEDGE, BOOST, norm_quote)
 from rapidfuzz import fuzz
 
+NEG_PARTICLES = {'не', 'ни'}
+
+
+def negated_verbs(doc) -> dict:
+    """Глаголы с отрицанием: лемма глагола -> True, если перед ним стоит частица.
+
+    Смотрим синтаксис: частица должна быть привязана именно к этому глаголу,
+    а не просто стоять где-то в предложении.
+    """
+    negated, plain = set(), set()
+    for sent in doc.sents:
+        toks = list(sent.tokens)
+        for i, t in enumerate(toks):
+            if t.pos != 'VERB':
+                continue
+            has_neg = any(
+                p.lemma in NEG_PARTICLES and (p.head_id == t.id or (0 <= i - 1 < len(toks) and toks[i - 1] is p))
+                for p in toks
+            )
+            (negated if has_neg else plain).add(t.lemma)
+    return {'negated': negated, 'plain': plain}
+
+
+def negation_flips(O, N) -> list:
+    """Сравнить отрицания по совпадающим сказуемым. Вернуть список перевёрнутых смыслов."""
+    o, n = negated_verbs(O['doc']), negated_verbs(N['doc'])
+    flips = []
+    for lemma in sorted(o['negated'] & n['plain']):
+        flips.append(('negation_dropped', lemma))
+    for lemma in sorted(n['negated'] & o['plain']):
+        flips.append(('negation_added', lemma))
+    return flips
+
+
 def build_facts(text, published_at):
     doc = parse_doc(text)
     nums = extract_numbers(text)
@@ -110,9 +144,19 @@ def check(orig_text, new_text, published_at):
     for f in N['entities']:
         if match_entity(f, O)[0] == 'missing':
             halluc.append((f['kind'] + '+', f['surface']))
-    # отрицания и модальность на уровне документа
-    neg_o = sum(1 for l in O['lemseq'] if l in NEG)
-    neg_n = sum(1 for l in N['lemseq'] if l in NEG)
+    # Отрицание: сравниваем не количество частиц, а привязку к сказуемому.
+    #
+    # Глобальный счётчик «не» здесь не работает, и это проверено на живых текстах:
+    # у ироничного тона отрицание — родная конструкция («решила не отвлекаться»,
+    # «это уже не сенсация»). В оригинале спортивной новости было ноль отрицаний,
+    # в переписанном три, при полностью сохранных фактах — и корректный текст
+    # браковался трижды подряд.
+    #
+    # Опасны два случая, оба про смену смысла у ОДНОГО И ТОГО ЖЕ глагола:
+    #   1) отрицание пропало: «не смогли договориться» -> «смогли договориться»;
+    #   2) отрицание появилось у глагола, который в оригинале шёл без него.
+    # Отрицание при новом глаголе, которого в оригинале не было, — стилистика.
+    neg_flips = negation_flips(O, N)
     hedge_lost = sorted((HEDGE & O['lemmas']) - N['lemmas'])
     boost_added = sorted((BOOST & N['lemmas']) - O['lemmas'])
     hard = [r for r in rows if SEVERITY[r[2]] == 2]
@@ -121,8 +165,8 @@ def check(orig_text, new_text, published_at):
     lost_w = sum(WEIGHT.get(r[0], 1.0) for r in hard) + 0.5 * sum(WEIGHT.get(r[0], 1.0) for r in soft)
     fpi = round(100 * (1 - lost_w / total_w), 1)
     return dict(rows=rows, hard=hard, soft=soft, halluc=halluc, fpi=fpi,
-                neg_delta=neg_n - neg_o, hedge_lost=hedge_lost, boost_added=boost_added)
+                neg_flips=neg_flips, neg_delta=len(neg_flips), hedge_lost=hedge_lost, boost_added=boost_added)
 
 def verdict(r):
-    bad = bool(r['hard']) or bool(r['halluc']) or r['neg_delta'] != 0 or bool(r['hedge_lost']) or bool(r['boost_added'])
+    bad = bool(r['hard']) or bool(r['halluc']) or bool(r['neg_flips']) or bool(r['hedge_lost']) or bool(r['boost_added'])
     return 'FAIL' if bad else ('WARN' if r['soft'] else 'PASS')

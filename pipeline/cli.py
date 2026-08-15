@@ -150,6 +150,23 @@ def cycle_cmd(limit: int = typer.Option(40)):
     typer.echo(f"\nсобрано {stats['saved']}, отсеяно {stats['rejected']}, повторов {stats['duplicates']}")
 
 
+@app.command("rewrite")
+def rewrite_cmd(
+    articles: int = typer.Option(0, help="сколько новостей взять (0 — все из витрины)"),
+    mood: str = typer.Option("", help="только один тон"),
+    provider: str = typer.Option("", help="claude_cli | openai | echo"),
+):
+    """Переписать витрину под все активные тона с проверкой фактов."""
+    from pipeline.rewrite import rewrite_all
+
+    stats = rewrite_all(limit_articles=articles, only_mood=mood, provider=provider or None)
+    typer.echo(
+        f"\nпар обработано {stats['pairs']}, опубликовано {stats['published']}, "
+        f"из них починено со второй-третьей попытки {stats['repaired']}, "
+        f"не прошло совсем {stats['failed']}, уже было готово {stats['cached']}"
+    )
+
+
 @app.command("check-robots")
 def check_robots():
     """Выкачать robots.txt каждого источника и показать, что там про нас."""
