@@ -89,6 +89,7 @@ def index(request: Request):
         "index.html",
         {
             "articles": articles,
+            "moods": repository.active_moods(),
             "c": counts,
             "last_fetch": human_time(counts.get("last_fetch")),
             "git_sha": settings.git_sha,
@@ -155,7 +156,8 @@ def article_page(request: Request, article_id: int, mood: str = "neutral"):
         return HTMLResponse(
             templates.get_template("not_ready.html").render(
                 request=request, article=article, mood=mood_row, moods=moods,
-                git_sha=settings.git_sha),
+                git_sha=settings.git_sha,
+                url_for=lambda name, **kw: request.url_for(name, **kw)),
             status_code=200,
         )
 

@@ -4,64 +4,67 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Mood News Grid — новости в разных эмоциональных режимах</title>
+<title>Mood News Grid — одни факты, разные интонации</title>
 <link rel="stylesheet" href="{{ url_for('static', path='/tokens.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='/moods.css') }}">
 </head>
 <body>
 
-<header class="site-head">
-  <div class="wrap head-row">
-    <div>
-      <h1>Mood News Grid</h1>
-      <p>
-        Настоящие новости из открытых лент, которые можно читать в разных эмоциональных
-        режимах. Факты при этом не меняются — и это проверяется автоматически,
-        а не обещается на словах.
-      </p>
-    </div>
-    <div class="counters">
-      <b>{{ c.showcase }}</b> новостей ·
-      <b>{{ c.sources_used }}</b> изданий ·
-      собрано {{ last_fetch }}
+<header class="masthead">
+  <div class="wrap masthead-inner">
+    <h1>Mood&nbsp;News&nbsp;Grid</h1>
+    <p class="tagline">
+      Настоящие новости из открытых лент, которые можно читать в четырёх эмоциональных
+      режимах. Факты при этом не меняются — каждый пересказ сверяется с оригиналом
+      машинно, и не прошедший сверку в ленту не попадает.
+    </p>
+    <div class="dateline">
+      <span><b>{{ c.showcase }}</b> материалов</span>
+      <span><b>{{ c.sources_used }}</b> изданий</span>
+      <span><b>{{ c.published_rewrites }}</b> проверенных пересказов</span>
+      <span class="spacer"></span>
+      <span>лента обновлена {{ last_fetch }}</span>
     </div>
   </div>
 </header>
 
 <main class="wrap">
 
-  <div class="notice">
+  <p class="notice">
     <b>Стадия сборки: этап 3 из 8.</b>
-    Новости настоящие. Готовые переписаны в четырёх эмоциональных режимах, и у каждого
-    варианта проверено, что факты не изменились — нажмите на заголовок, чтобы увидеть
-    оригинал и пересказ рядом с подсветкой фактов. Карточки с пометкой «тона генерируются»
-    ещё в очереди: тексты попадают в ленту только после того, как пройдут проверку.
-  </div>
+    Готовые материалы переписаны в четырёх режимах — откройте любой, чтобы увидеть
+    оригинал и пересказ рядом с подсветкой фактов. Материалы с пометкой «в очереди»
+    ещё генерируются: текст попадает в ленту только после того, как пройдёт сверку.
+  </p>
 
   <div class="grid">
     {% for a in articles %}
-    <article class="card">
+    <article class="card {% if loop.first and a.is_ready %}lead{% endif %}">
       <div class="card-meta">
-        <span class="dot" style="background: hsl({{ a.hue }} 55% 45%)"></span>
-        <span class="src-name">{{ a.source_title }}</span>
-        {% if a.author %}<span>· {{ a.author }}</span>{% endif %}
-        <span>· {{ a.published_human }}</span>
+        <span class="dot" style="background: hsl({{ a.hue }} 45% 45%)"></span>
+        <span class="src">{{ a.source_title }}</span>
+        {% if a.author %}<span>{{ a.author }}</span>{% endif %}
+        <span>{{ a.published_human }}</span>
       </div>
 
       <h2>
-        {% if a.is_ready %}
-        <a href="{{ url_for('article_page', article_id=a.id) }}">{{ a.title }}</a>
+        {% if a.is_ready %}<a href="{{ url_for('article_page', article_id=a.id) }}">{{ a.title }}</a>
         {% else %}{{ a.title }}{% endif %}
       </h2>
 
-      <p class="lead">{{ a.lead }}</p>
+      <p class="lead-text">{{ a.lead }}</p>
 
       <div class="card-foot">
         {% if a.is_ready %}
-        <a href="{{ url_for('article_page', article_id=a.id) }}">Сравнить тона →</a>
+          <a href="{{ url_for('article_page', article_id=a.id) }}">четыре интонации</a>
+          <span class="tone-strip">
+            {% for m in moods %}<i style="--h: {{ m.accent_hue }}"></i>{% endfor %}
+          </span>
         {% else %}
-        <span class="badge">тона генерируются</span>
+          <span class="queued">в очереди на пересказ</span>
         {% endif %}
-        <a href="{{ a.url }}" target="_blank" rel="nofollow noopener" class="muted-link">источник</a>
+        <a href="{{ a.url }}" target="_blank" rel="nofollow noopener"
+           class="muted" style="margin-left:auto">источник</a>
       </div>
     </article>
     {% endfor %}
@@ -70,7 +73,7 @@
 </main>
 
 <footer class="site-foot wrap">
-  <span>Сборка {{ git_sha }} · всего в базе {{ c.articles_total }} материалов</span>
+  <span>Сборка {{ git_sha }} · всего в базе {{ c.articles_total }}</span>
   <span><a href="https://bogemadumb.ru">bogemadumb.ru</a></span>
 </footer>
 

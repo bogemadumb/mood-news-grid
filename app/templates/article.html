@@ -1,121 +1,123 @@
 <!doctype html>
-<html lang="ru" data-mood="{{ mood.code }}">
+<html lang="ru" data-mood="{{ mood.code }}" style="--h: {{ mood.accent_hue }}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>{{ article.title }} — Mood News Grid</title>
+<title>{{ article.title }} — {{ mood.title_ru }} — Mood News Grid</title>
 <link rel="stylesheet" href="{{ url_for('static', path='/tokens.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='/moods.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', path='/compare.css') }}">
 </head>
 <body>
 
-<header class="site-head compact">
-  <div class="wrap head-row">
-    <a class="back" href="{{ url_for('index') }}">← ко всем новостям</a>
-    <div class="counters">
-      <span class="dot" style="background: hsl({{ hue }} 55% 45%)"></span>
-      {{ article.source_title }}
-      {% if article.author %} · {{ article.author }}{% endif %}
-      · {{ published_human }}
-    </div>
-  </div>
-</header>
+<div class="wrap">
 
-<main class="wrap">
+  <div class="topbar">
+    <a class="back" href="{{ url_for('index') }}">← лента</a>
+    <span class="spacer"></span>
+    <span class="dot" style="background: hsl({{ hue }} 45% 45%)"></span>
+    <span>{{ article.source_title }}</span>
+    {% if article.author %}<span>{{ article.author }}</span>{% endif %}
+    <span>{{ published_human }}</span>
+  </div>
 
   <nav class="moodbar" role="radiogroup" aria-label="Эмоциональный режим">
     {% for m in moods %}
     <a class="mood-btn {% if m.code == mood.code %}active{% endif %}"
-       style="--hue: {{ m.accent_hue }}"
+       style="--h: {{ m.accent_hue }};
+              --btn-weight: {{ m.btn_weight }};
+              --btn-opsz: {{ m.btn_opsz }};
+              --btn-track: {{ m.btn_track }};
+              --btn-style: {{ m.btn_style }}"
        role="radio" aria-checked="{{ 'true' if m.code == mood.code else 'false' }}"
        href="?mood={{ m.code }}">
-      <b>{{ m.title_ru }}</b><span>{{ m.subtitle }}</span>
+      <span class="name">{{ m.title_ru }}</span>
+      <span class="hint">{{ m.subtitle }}</span>
     </a>
     {% endfor %}
   </nav>
 
-  <section class="verify-bar">
-    <div class="verify-main">
-      <span class="verify-badge {{ 'ok' if check.passed else 'fail' }}">
-        {{ 'ФАКТЫ' if check.passed else 'НЕ ПРОШЛО' }}
-        <b>{{ check.kept }}/{{ check.total }}</b>
-      </span>
-      <span class="verify-note">
-        {% if check.passed %}
-          Все проверяемые факты найдены в переписанном тексте. Ничего не выдумано.
-        {% else %}
-          Этот вариант забракован проверкой и не показывался бы в ленте.
-        {% endif %}
-      </span>
-    </div>
-    <div class="verify-nums">
-      <span title="Насколько текст отличается от оригинала">
-        непохожесть <b>{{ '%.0f'|format(check.style_distance * 100) }}%</b>
-      </span>
-      <span title="Сколько попыток понадобилось">попытка <b>{{ rewrite.attempt }}</b></span>
-      <button class="linklike" onclick="document.getElementById('passport').toggleAttribute('open')">
-        как это сделано
-      </button>
-      <button class="linklike" id="regen">перегенерировать сейчас</button>
-    </div>
+  <section class="verify">
+    <span class="stamp {{ '' if check.passed else 'bad' }}">
+      {{ 'факты сверены' if check.passed else 'не прошло сверку' }}
+      <b>{{ check.kept }}/{{ check.total }}</b>
+    </span>
+    <span class="verify-note">
+      {% if check.passed %}
+        Все проверяемые факты найдены в пересказе, ничего лишнего не добавлено.
+        Наведите курсор на подсвеченный факт — загорится его двойник в другой колонке.
+      {% else %}
+        Этот вариант забракован сверкой и в ленте не показывался.
+      {% endif %}
+    </span>
+    <span class="verify-nums">
+      <span>непохожесть <b>{{ '%.0f'|format(check.style_distance * 100) }}%</b></span>
+      <span>попытка <b>{{ rewrite.attempt }}</b></span>
+      <button class="linklike" id="regen">перегенерировать</button>
+    </span>
   </section>
 
   <div id="regen-out" class="regen-out" hidden></div>
 
-  <details id="passport" class="passport">
-    <summary>Паспорт генерации</summary>
-    <dl>
-      <dt>Модель</dt><dd>{{ rewrite.provider }} / {{ rewrite.model }}</dd>
-      <dt>Температура</dt><dd>{{ rewrite.temperature }}</dd>
-      <dt>Версия промпта</dt><dd>{{ rewrite.prompt_version }}</dd>
-      <dt>Задержка</dt><dd>{{ rewrite.latency_ms }} мс</dd>
-      <dt>Запись вызова модели</dt><dd>#{{ rewrite.llm_call_id }}</dd>
-      <dt>Отпечаток исходного текста</dt><dd><code>{{ rewrite.source_text_sha256[:16] }}…</code></dd>
-    </dl>
-    <p class="hint">
-      Каждый показанный текст ссылается на конкретный вызов модели. Строка без такой ссылки
-      физически не сохранится в базе — это ограничение уровня схемы, а не обещание.
-    </p>
-    <details class="prompt">
-      <summary>Каким промптом это сделано</summary>
-      <pre>{{ mood.system_prompt }}</pre>
-    </details>
-  </details>
-
   <div class="compare">
     <section class="col">
-      <h2 class="col-head">Оригинал <span>{{ article.source_title }}</span></h2>
-      <h3 class="art-title">{{ article.title }}</h3>
+      <div class="col-head">
+        <span class="who">оригинал</span>
+        <span>{{ article.source_title }}</span>
+        <span>{{ article.source_len }} знаков</span>
+      </div>
+      <h2 class="art-title">{{ article.title }}</h2>
       <div class="art-body">{{ original_html }}</div>
       <a class="src-link" href="{{ article.url }}" target="_blank" rel="nofollow noopener">
-        Читать в источнике →
+        читать в источнике →
       </a>
     </section>
 
-    <section class="col rewritten">
-      <h2 class="col-head">
-        {{ mood.title_ru }}
-        <span>переписано нейросетью</span>
-      </h2>
-      <h3 class="art-title">{{ rewrite.title_rewritten }}</h3>
+    <section class="col rewritten tone-set">
+      <div class="col-head">
+        <span class="who">{{ mood.title_ru }}</span>
+        <span>пересказ нейросети</span>
+        <span>{{ rewrite.model }}</span>
+      </div>
+      <h2 class="art-title">{{ rewrite.title_rewritten }}</h2>
       <div class="art-body">{{ rewritten_html }}</div>
       <p class="disclaimer">
-        Текст изменён нейросетью. Факты проверены автоматически, оригинал — слева и по ссылке.
+        Текст изменён нейросетью · факты сверены машинно · оригинал слева и по ссылке
       </p>
     </section>
   </div>
 
+  <details class="block passport">
+    <summary>паспорт генерации</summary>
+    <dl>
+      <dt>модель</dt><dd>{{ rewrite.provider }} / {{ rewrite.model }}</dd>
+      <dt>температура</dt><dd>{{ rewrite.temperature }}</dd>
+      <dt>версия промпта</dt><dd>{{ rewrite.prompt_version }}</dd>
+      <dt>задержка</dt><dd>{{ rewrite.latency_ms }} мс</dd>
+      <dt>вызов модели</dt><dd>№{{ rewrite.llm_call_id }}</dd>
+      <dt>отпечаток оригинала</dt><dd>{{ rewrite.source_text_sha256[:24] }}…</dd>
+    </dl>
+    <p class="hint">
+      Каждый показанный текст ссылается на конкретный вызов модели. Строка без такой ссылки
+      физически не сохранится в базе: это ограничение схемы, а не обещание в документации.
+    </p>
+    <details class="block prompt">
+      <summary>каким промптом это сделано</summary>
+      <pre>{{ mood.system_prompt }}</pre>
+    </details>
+  </details>
+
   {% if attempts|length > 1 %}
-  <details class="attempts">
-    <summary>Журнал попыток ({{ attempts|length }})</summary>
+  <details class="block attempts">
+    <summary>журнал попыток ({{ attempts|length }})</summary>
     <table>
       <thead><tr><th>№</th><th>вердикт</th><th>непохожесть</th><th>что сломалось</th></tr></thead>
       <tbody>
       {% for a in attempts %}
         <tr class="{{ 'ok' if a.verdict == 'PASS' else 'bad' }}">
           <td>{{ a.attempt }}</td>
-          <td>{{ a.verdict }}</td>
+          <td class="v">{{ a.verdict }}</td>
           <td>{{ '%.0f'|format((a.style_distance or 0) * 100) }}%</td>
           <td>{{ a.problem or '—' }}</td>
         </tr>
@@ -123,21 +125,20 @@
       </tbody>
     </table>
     <p class="hint">
-      Неудачные попытки не выбрасываются. Ремонтный промпт получает адресный список нарушений,
-      а не просьбу «попробуй ещё раз».
+      Неудачные попытки не выбрасываются. Ремонтный промпт получает адресный список
+      нарушений, а не просьбу «попробуй ещё раз».
     </p>
   </details>
   {% endif %}
 
-</main>
+</div>
 
 <footer class="site-foot wrap">
-  <span>Сборка {{ git_sha }}</span>
-  <span><a href="{{ url_for('index') }}">все новости</a></span>
+  <span>сборка {{ git_sha }}</span>
+  <span><a href="{{ url_for('index') }}">вся лента</a></span>
 </footer>
 
 <script>
-// Перегенерация: ответ на вопрос «а вы не написали эти тексты заранее руками?».
 document.getElementById('regen')?.addEventListener('click', async e => {
   const btn = e.target, box = document.getElementById('regen-out');
   btn.disabled = true; btn.textContent = 'генерирую…';
@@ -149,25 +150,26 @@ document.getElementById('regen')?.addEventListener('click', async e => {
     });
     const d = await r.json();
     box.hidden = false;
-    box.innerHTML = d.ok
-      ? '<b>Готово.</b> Вердикт ' + d.verdict + ', непохожесть ' +
+    if (d.ok) {
+      box.innerHTML = '<b>Готово.</b> Вердикт ' + d.verdict + ', непохожесть ' +
         Math.round(d.style_distance * 100) + '%, новый вызов модели №' + d.llm_call_id +
-        '.<div class="regen-text"></div>'
-      : '<b>Не получилось.</b> ' + (d.reason || (d.verdict + ': ' + (d.violations || []).join('; ')));
-    if (d.ok) box.querySelector('.regen-text').textContent = d.body;
+        '. Этого текста не существовало минуту назад.<div class="regen-text"></div>';
+      box.querySelector('.regen-text').textContent = d.body;
+    } else {
+      box.textContent = d.reason || (d.verdict + ': ' + (d.violations || []).join('; '));
+    }
   } catch (err) {
     box.hidden = false; box.textContent = 'запрос не прошёл: ' + err;
   }
-  btn.disabled = false; btn.textContent = 'перегенерировать сейчас';
+  btn.disabled = false; btn.textContent = 'перегенерировать';
 });
 
-// Наведение на факт слева подсвечивает его двойника справа.
 document.addEventListener('mouseover', e => {
   const m = e.target.closest('.fact'); if (!m) return;
   document.querySelectorAll('[data-fact="' + m.dataset.fact + '"]').forEach(n => n.classList.add('lit'));
 });
 document.addEventListener('mouseout', e => {
-  const m = e.target.closest('.fact'); if (!m) return;
+  if (!e.target.closest('.fact')) return;
   document.querySelectorAll('.fact.lit').forEach(n => n.classList.remove('lit'));
 });
 </script>
