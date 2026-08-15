@@ -140,8 +140,18 @@ def same_speaker(a: str, b: str) -> bool:
 
 # Названия площадок, куда упирается атрибуция: «разместила на своей странице в соцсети X»
 # -> разбор считает говорящим саму соцсеть. Поймано на живой новости про Аюсо.
-PLATFORMS = {'x', 'twitter', 'telegram', 'facebook', 'instagram', 'вконтакте', 'вк',
-             'youtube', 'tiktok', 'threads', 'соцсеть', 'соцсети'}
+PLATFORMS = {'x', 'twitter', 'telegram', 'телеграм', 'facebook', 'instagram', 'вконтакте', 'вк',
+             'youtube', 'tiktok', 'threads', 'соцсеть', 'соцсети', 'макс', 'max', 'whatsapp',
+             'дзен', 'rutube', 'одноклассники'}
+
+
+def is_platform(surface) -> bool:
+    """Название площадки публикации, а не участник события."""
+    if not surface:
+        return False
+    words = re.findall(r"[А-Яа-яЁёA-Za-z]{2,}", str(surface))
+    return any(MORPH_PARSER.parse(w)[0].normal_form in PLATFORMS or w.lower() in PLATFORMS
+               for w in words)
 
 
 def plausible_speaker(name) -> bool:
@@ -191,7 +201,8 @@ def match_quote(f, target, orig_facts=None):
     return 'missing', None
 
 SEVERITY = {'ok': 0, 'approx_changed': 2, 'alias': 0, 'short': 0, 'fuzzy': 1, 'rounded': 1, 'partial': 1,
-            'unit_changed': 2, 'speaker_changed': 2, 'speaker_lost': 1, 'paraphrased': 2, 'missing': 2}
+            'unit_changed': 2, 'speaker_changed': 2, 'speaker_lost': 1, 'paraphrased': 2, 'missing': 2,
+            'platform_dropped': 1}
 WEIGHT = {'number': 1.0, 'money': 1.0, 'percent': 1.0, 'date': 1.0,
           'per': 1.0, 'org': 0.8, 'loc': 0.6, 'quote': 1.2}
 
@@ -233,6 +244,17 @@ def check(orig_text, new_text, published_at):
     neg_flips = negation_flips(O, N)
     hedge_lost = sorted((HEDGE & O['lemmas']) - N['lemmas'])
     boost_added = sorted((BOOST & N['lemmas']) - O['lemmas'])
+    # Площадка, на которой сделано заявление («сообщил в своём канале в „Максе“»),
+    # это канал публикации, а не суть новости. Её пропажа — замечание, а не блокировка.
+    # Подмена одной организации другой при этом по-прежнему ловится: выброшенное название
+    # даёт missing, а подставленное — запись в галлюцинациях.
+    rows = [
+        (kind, surface, 'platform_dropped' if (kind == 'org' and status == 'missing'
+                                               and is_platform(surface)) else status, got)
+        for kind, surface, status, got in rows
+    ]
+    halluc = [(k, s_) for k, s_ in halluc if not (k == 'org+' and is_platform(s_))]
+
     hard = [r for r in rows if SEVERITY[r[2]] == 2]
     soft = [r for r in rows if SEVERITY[r[2]] == 1]
     total_w = sum(WEIGHT.get(r[0], 1.0) for r in rows) or 1

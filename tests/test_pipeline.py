@@ -259,3 +259,25 @@ def test_strip_promo_tail(text, should_change):
     result = strip_promo_tail(text)
     assert (result != text) is should_change
     assert result, "текст не должен исчезать целиком"
+
+
+def test_platform_drop_is_soft_but_source_swap_is_hard():
+    """Площадка публикации и источник новости — разные вещи.
+
+    «Сообщил в своём канале в „Максе“» — канал публикации: его пропажа не искажает событие.
+    А подмена Reuters на ТАСС меняет, кто это сообщил, и обязана блокировать публикацию.
+    """
+    import datetime
+
+    from pipeline.facts.check import check, verdict
+
+    pub = datetime.datetime(2026, 8, 15)
+
+    orig = ("Губернатор Андрей Воробьев сообщил в своем канале в «Максе», "
+            "что угрозы жизни ребенка сейчас нет.")
+    without_platform = "Андрей Воробьев сообщил, что угрозы жизни ребенка сейчас нет."
+    assert verdict(check(orig, without_platform, pub)) in ("PASS", "WARN")
+
+    orig2 = "США и КНР не договорились по тарифам, сообщает Reuters."
+    swapped = "США и КНР не договорились по тарифам, сообщает ТАСС."
+    assert verdict(check(orig2, swapped, pub)) == "FAIL"
