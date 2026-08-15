@@ -22,6 +22,7 @@ def showcase_articles(limit: int = 30, only_ready: bool = True) -> list[dict]:
         rows = conn.execute(
             f"""SELECT a.id, a.title, a.url, a.author, a.published_at, a.source_len,
                       a.rewrite_source_text, a.extraction_method, a.url_http_status,
+                      a.moods_ready, a.moods_expected, a.sensitivity,
                       s.code AS source_code, s.title AS source_title, s.homepage_url
                FROM articles a JOIN sources s ON s.id = a.source_id
                WHERE a.in_showcase = 1 {ready_clause}

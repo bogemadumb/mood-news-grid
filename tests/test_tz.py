@@ -120,10 +120,17 @@ def test_tz_p5_original_and_rewritten_side_by_side():
 
 @needs_data
 def test_tz_p6_link_to_original_source():
-    """6. Показывать ссылку на оригинальный источник."""
+    """6. Показывать ссылку на оригинальный источник.
+
+    Ссылки проверяются у тех новостей, которые лента реально показывает: в грид попадают
+    только материалы с полным комплектом разрешённых им тонов.
+    """
     page = client.get("/").text
-    urls = rows("SELECT url FROM articles WHERE in_showcase=1 LIMIT 3")
-    assert any(u["url"] in page for u in urls), "в ленте нет ссылок на источники"
+    shown = rows("""SELECT url FROM articles WHERE in_showcase=1
+                    AND moods_ready >= moods_expected AND moods_ready > 0 LIMIT 5""") \
+        or rows("SELECT url FROM articles WHERE in_showcase=1 LIMIT 5")
+    assert shown, "витрина пуста"
+    assert all(u["url"] in page for u in shown), "у показанной новости нет ссылки на источник"
 
 
 # --- «Важная логика» ---
@@ -161,8 +168,12 @@ def test_tz_logic_provenance_is_visible():
                     LEFT JOIN sources s ON s.id=a.source_id WHERE s.id IS NULL""")
     assert orphan == 0
     page = client.get("/").text
-    titles = rows("SELECT DISTINCT s.title FROM sources s JOIN articles a ON a.source_id=s.id"
-                  " WHERE a.in_showcase=1 LIMIT 3")
+    titles = rows("""SELECT DISTINCT s.title FROM sources s JOIN articles a ON a.source_id=s.id
+                     WHERE a.in_showcase=1
+                       AND a.moods_ready >= a.moods_expected AND a.moods_ready > 0""") \
+        or rows("""SELECT DISTINCT s.title FROM sources s JOIN articles a ON a.source_id=s.id
+                   WHERE a.in_showcase=1 LIMIT 3""")
+    assert titles, "витрина пуста"
     assert all(t["title"] in page for t in titles), "издание не подписано на карточке"
 
 

@@ -26,7 +26,7 @@ sqlite3 "$SRC" ".backup '$TMP/news.db'"
 sqlite3 "$TMP/news.db" "PRAGMA wal_checkpoint(TRUNCATE); VACUUM;" >/dev/null
 gzip -9 -c "$TMP/news.db" > "$TMP/news.db.gz"
 
-READY=$(sqlite3 "$TMP/news.db" "SELECT COUNT(*) FROM articles WHERE moods_ready >= (SELECT COUNT(*) FROM moods WHERE is_active=1 AND is_service=0)")
+READY=$(sqlite3 "$TMP/news.db" "SELECT COUNT(*) FROM articles WHERE moods_ready >= moods_expected AND moods_ready > 0")
 PUB=$(sqlite3 "$TMP/news.db" "SELECT COUNT(*) FROM rewrites WHERE status='published'")
 SIZE=$(du -h "$TMP/news.db.gz" | cut -f1)
 echo "готовых новостей: $READY, проверенных пересказов: $PUB, размер архива: $SIZE"

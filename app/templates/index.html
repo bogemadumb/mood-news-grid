@@ -56,9 +56,11 @@
 
       <div class="card-foot">
         {% if a.is_ready %}
-          <a href="{{ url_for('article_page', article_id=a.id) }}">четыре интонации</a>
+          <a href="{{ url_for('article_page', article_id=a.id) }}">
+            {% if a.tones == 1 %}нейтральный пересказ{% else %}{{ a.tones }} интонации{% endif %}
+          </a>
           <span class="tone-strip">
-            {% for m in moods %}<i style="--h: {{ m.accent_hue }}"></i>{% endfor %}
+            {% for m in moods[:a.tones] %}<i style="--h: {{ m.accent_hue }}"></i>{% endfor %}
           </span>
         {% else %}
           <span class="queued">в очереди на пересказ</span>

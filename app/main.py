@@ -82,6 +82,16 @@ def index(request: Request):
         a["published_human"] = human_time(a["published_at"])
         a["lead"] = make_lead(a["rewrite_source_text"])
         a["is_ready"] = a["id"] in ready_ids
+        a["tones"] = a.get("moods_ready") or 0
+        a["is_sensitive"] = (a.get("sensitivity") or "none") == "death"
+
+    # Заглавным материалом не ставим трагедию: полоса про эмоциональные режимы,
+    # открывающаяся некрологом, выглядит бестактно, даже если режимы там отключены.
+    for i, a in enumerate(articles):
+        if a["is_ready"] and not a["is_sensitive"]:
+            if i:
+                articles.insert(0, articles.pop(i))
+            break
 
     counts = repository.counters()
     return templates.TemplateResponse(
@@ -101,7 +111,8 @@ def index(request: Request):
 def healthz():
     """Живость для watchdog: пустая витрина — это отказ, а не «всё хорошо»."""
     counts = repository.counters()
-    ok = counts["ready"] >= settings.min_ready_articles
+    ok = (counts["ready"] >= settings.min_ready_articles
+          and counts["articles_total"] >= settings.min_articles_total)
     payload = {
         "ok": ok,
         "articles_total": counts["articles_total"],

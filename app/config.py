@@ -13,8 +13,11 @@ class Settings(BaseSettings):
     root_path: str = ""
     db_path: Path = BASE_DIR / "data" / "news.db"
     git_sha: str = "dev"
-    # Минимум готовых статей, ниже которого /healthz честно отдаёт 503.
-    min_ready_articles: int = 10
+    # Ниже этого числа готовых новостей витрина считается сломанной и /healthz отдаёт 503.
+    # Шесть — столько нужно, чтобы грид выглядел лентой, а не заготовкой.
+    # Требование ТЗ про «минимум 10 новостей» проверяется отдельно, по всей базе.
+    min_ready_articles: int = 6
+    min_articles_total: int = 10
 
 
 settings = Settings()
