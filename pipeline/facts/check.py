@@ -32,12 +32,18 @@ def negated_verbs(doc) -> dict:
 
 
 def negation_flips(O, N) -> list:
-    """Сравнить отрицания по совпадающим сказуемым. Вернуть список перевёрнутых смыслов."""
+    """Сравнить отрицания по совпадающим сказуемым.
+
+    Глаголы, которые в одном и том же тексте встречаются и с отрицанием, и без него,
+    из сравнения исключаются: понять, какое из вхождений с каким сопоставлять, по множествам
+    нельзя, а угадывать — значит выдумывать нарушение. Такие случаи уходят в известные дыры.
+    """
     o, n = negated_verbs(O['doc']), negated_verbs(N['doc'])
+    ambiguous = (o['negated'] & o['plain']) | (n['negated'] & n['plain'])
     flips = []
-    for lemma in sorted(o['negated'] & n['plain']):
+    for lemma in sorted((o['negated'] & n['plain']) - ambiguous):
         flips.append(('negation_dropped', lemma))
-    for lemma in sorted(n['negated'] & o['plain']):
+    for lemma in sorted((n['negated'] & o['plain']) - ambiguous):
         flips.append(('negation_added', lemma))
     return flips
 
@@ -192,6 +198,9 @@ def compare_speakers(orig_speaker, new_speaker, orig_facts) -> str:
 def match_quote(f, target, orig_facts=None):
     for c in target['quotes']:
         if c['norm'] == f['norm']:
+            # У закавыченного названия говорящего нет и быть не может: сверяем только наличие.
+            if not (f.get('is_speech') and c.get('is_speech')):
+                return 'ok', c['surface']
             st = compare_speakers(f.get('speaker'), c.get('speaker'),
                                   orig_facts or {'lemmas': set()})
             return st, c['surface']

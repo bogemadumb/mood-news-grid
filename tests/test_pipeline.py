@@ -317,3 +317,41 @@ def test_mood_allowed_rules():
     assert mood_allowed(neutral, "death")
     assert not mood_allowed(ironic, "death")
     assert mood_allowed(ironic, "none")
+
+
+def test_quoted_name_is_not_direct_speech():
+    """В русском в «ёлочки» берут и названия: газета «Украинская правда», порт «Южный».
+
+    Считать их прямой речью нельзя: проверка начинала требовать у названия газеты
+    говорящего и блокировала корректный пересказ.
+    """
+    import datetime
+
+    from pipeline.facts.check import check, verdict
+
+    pub = datetime.datetime(2026, 8, 15)
+    orig = ('Об этом сообщает издание «Украинская правда». Судно зашло в порт «Южный» '
+            'вечером 14 августа.')
+    retold = ('Как пишет «Украинская правда», судно вечером 14 августа прибыло '
+              'в порт «Южный».')
+    assert verdict(check(orig, retold, pub)) == "PASS"
+
+    # А настоящая прямая речь по-прежнему сверяется вместе с говорящим
+    orig2 = ('«Инфляция замедляется быстрее, чем мы ожидали», — заявила Эльвира Набиуллина.')
+    swapped = ('«Инфляция замедляется быстрее, чем мы ожидали», — заявил Антон Силуанов.')
+    assert verdict(check(orig2, swapped, pub)) == "FAIL"
+
+
+def test_ambiguous_verb_is_not_a_negation_flip():
+    """Глагол, встречающийся в тексте и с «не», и без него, из сравнения исключается.
+
+    Иначе перестановка предложений выглядит как переворот смысла.
+    """
+    import datetime
+
+    from pipeline.facts.check import check
+
+    pub = datetime.datetime(2026, 8, 15)
+    orig = ("Компания смогла запустить завод в срок. Вторую очередь запустить не смогла.")
+    retold = ("Вторую очередь компания запустить не смогла, хотя первую смогла запустить в срок.")
+    assert not check(orig, retold, pub)["neg_flips"]

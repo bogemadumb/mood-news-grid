@@ -220,7 +220,7 @@ def save_attempt(conn, article: dict, mood: dict, attempt_no: int, att: Attempt,
 
 
 def rewrite_all(limit_articles: int = 0, only_mood: str = "", provider: str | None = None,
-                verbose: bool = True) -> dict:
+                offset: int = 0, verbose: bool = True) -> dict:
     stats = {"pairs": 0, "published": 0, "failed": 0, "repaired": 0, "cached": 0}
 
     with session() as conn:
@@ -232,7 +232,8 @@ def rewrite_all(limit_articles: int = 0, only_mood: str = "", provider: str | No
             """SELECT id, title, rewrite_source_text, source_text_sha256, published_at,
                       COALESCE(sensitivity,'none') AS sensitivity, sensitivity_reason
                FROM articles WHERE in_showcase=1 ORDER BY published_at DESC"""
-            + (f" LIMIT {int(limit_articles)}" if limit_articles else "")).fetchall()]
+            + (f" LIMIT {int(limit_articles)}" if limit_articles else " LIMIT -1")
+            + (f" OFFSET {int(offset)}" if offset else "")).fetchall()]
 
     for article in articles:
         allowed = [m for m in moods if mood_allowed(m, article["sensitivity"])]

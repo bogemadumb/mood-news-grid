@@ -159,11 +159,13 @@ def rewrite_cmd(
     articles: int = typer.Option(0, help="сколько новостей взять (0 — все из витрины)"),
     mood: str = typer.Option("", help="только один тон"),
     provider: str = typer.Option("", help="claude_cli | openai | echo"),
+    offset: int = typer.Option(0, help="пропустить N новостей — чтобы делить работу между процессами"),
 ):
     """Переписать витрину под все активные тона с проверкой фактов."""
     from pipeline.rewrite import rewrite_all
 
-    stats = rewrite_all(limit_articles=articles, only_mood=mood, provider=provider or None)
+    stats = rewrite_all(limit_articles=articles, only_mood=mood,
+                        provider=provider or None, offset=offset)
     typer.echo(
         f"\nпар обработано {stats['pairs']}, опубликовано {stats['published']}, "
         f"из них починено со второй-третьей попытки {stats['repaired']}, "

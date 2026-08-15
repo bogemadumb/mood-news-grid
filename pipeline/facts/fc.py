@@ -103,10 +103,27 @@ def extract_entities(doc):
                         lemmas=lemmas, start=s.start, stop=s.stop))
     return out
 
+def looks_like_speech(fragment, doc, start, stop):
+    """Прямая ли это речь.
+
+    В русском в «ёлочки» берут не только реплики, но и названия: газета «Украинская правда»,
+    порт «Южный», компания «Яндекс». Считать их цитатами нельзя — потом проверка требует
+    у названия газеты говорящего и блокирует корректный пересказ.
+
+    Признак речи: внутри кавычек есть глагол и хотя бы четыре слова.
+    """
+    words = re.findall(r"[А-Яа-яЁёA-Za-z]{2,}", fragment)
+    if len(words) < 4:
+        return False
+    inner = [t for t in doc.tokens if start <= t.start < stop]
+    return any(t.pos in ("VERB", "AUX") for t in inner)
+
+
 def extract_quotes(doc, text):
     res = []
     for m in QUOTE_RE.finditer(text):
         q = m.group(1)
+        is_speech = looks_like_speech(q, doc, m.start(1), m.end(1))
         speaker = None
         for sent in doc.sents:
             if sent.start <= m.start() < sent.stop:
