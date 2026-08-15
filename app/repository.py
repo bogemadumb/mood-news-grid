@@ -15,11 +15,9 @@ def showcase_articles(limit: int = 30, only_ready: bool = True) -> list[dict]:
     """
     ready_clause = ""
     if only_ready:
-        ready_clause = """AND a.id IN (
-              SELECT article_id FROM rewrites WHERE status='published'
-              GROUP BY article_id
-              HAVING COUNT(DISTINCT mood_code) >=
-                     (SELECT COUNT(*) FROM moods WHERE is_active=1 AND is_service=0))"""
+        # Готова та новость, у которой опубликованы все РАЗРЕШЁННЫЕ ей тона.
+        # У материалов о гибели людей их всего один — и это полный комплект.
+        ready_clause = "AND a.moods_ready >= a.moods_expected AND a.moods_ready > 0"
     with session() as conn:
         rows = conn.execute(
             f"""SELECT a.id, a.title, a.url, a.author, a.published_at, a.source_len,
@@ -52,8 +50,8 @@ def counters() -> dict:
             """SELECT
                  (SELECT COUNT(*) FROM articles) AS articles_total,
                  (SELECT COUNT(*) FROM articles WHERE in_showcase=1) AS showcase,
-                 (SELECT COUNT(*) FROM articles WHERE moods_ready >=
-                    (SELECT COUNT(*) FROM moods WHERE is_active=1 AND is_service=0)) AS ready,
+                 (SELECT COUNT(*) FROM articles
+                    WHERE moods_ready >= moods_expected AND moods_ready > 0) AS ready,
                  (SELECT COUNT(DISTINCT source_id) FROM articles WHERE in_showcase=1) AS sources_used,
                  (SELECT MAX(fetched_at) FROM articles) AS last_fetch,
                  (SELECT COUNT(*) FROM rewrites WHERE status='published') AS published_rewrites"""
@@ -149,14 +147,12 @@ def checks_of(rewrite_id: int) -> list[dict]:
 
 
 def ready_article_ids() -> set[int]:
-    """Новости, у которых готовы все активные тона. Только они идут в грид."""
+    """Новости с полным комплектом разрешённых им тонов."""
     with session() as conn:
-        active = conn.execute(
-            "SELECT COUNT(*) n FROM moods WHERE is_active=1 AND is_service=0").fetchone()["n"]
         rows = conn.execute(
-            """SELECT article_id FROM rewrites WHERE status='published'
-               GROUP BY article_id HAVING COUNT(DISTINCT mood_code) >= ?""", (active,)).fetchall()
-        return {r["article_id"] for r in rows}
+            "SELECT id FROM articles WHERE moods_ready >= moods_expected AND moods_ready > 0"
+        ).fetchall()
+        return {r["id"] for r in rows}
 
 
 def stats() -> dict:

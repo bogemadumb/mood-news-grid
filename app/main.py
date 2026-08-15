@@ -159,6 +159,20 @@ def article_page(request: Request, article_id: int, mood: str = "neutral"):
     if mood in blocked:
         return HTMLResponse(templates.get_template("refused.html").render(
             request=request, article=article, mood=mood_row, moods=moods, blocked=blocked,
+            by_model=False, hue=source_hue(article["source_code"]),
+            published_human=human_time(article["published_at"]),
+            git_sha=settings.git_sha,
+            url_for=lambda name, **kw: request.url_for(name, **kw)))
+
+    # Модель могла отказаться сама — это отдельный случай, и он честнее правила.
+    with db.session() as conn:
+        refusal = conn.execute(
+            """SELECT r.id FROM rewrites r WHERE r.article_id=? AND r.mood_code=?
+               AND r.verdict='REFUSED' LIMIT 1""", (article_id, mood)).fetchone()
+    if refusal:
+        return HTMLResponse(templates.get_template("refused.html").render(
+            request=request, article=article, mood=mood_row, moods=moods,
+            blocked=blocked + [mood], by_model=True,
             hue=source_hue(article["source_code"]),
             published_human=human_time(article["published_at"]),
             git_sha=settings.git_sha,

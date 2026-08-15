@@ -137,6 +137,11 @@ def run_attempt(mood: dict, article: dict, attempt: int,
 
     parsed = llm.parse_json_answer(result.text)
     if not parsed:
+        if llm.looks_like_refusal(result.text):
+            # Модель сочла тон неуместным для этого материала. Повторять бессмысленно:
+            # это её решение, а не сбой формата. Режим для новости просто закрывается.
+            return Attempt("REFUSED", "", "", None, 0, 0, 0, result.call_id,
+                           result.latency_ms, [result.text.strip()[:300]])
         return Attempt("BAD_JSON", "", "", None, 0, 0, 0, result.call_id,
                        result.latency_ms, ["ответ не разобрался как JSON"])
 
@@ -221,7 +226,7 @@ def save_attempt(conn, article: dict, mood: dict, attempt_no: int, att: Attempt,
 
 def rewrite_all(limit_articles: int = 0, only_mood: str = "", provider: str | None = None,
                 offset: int = 0, verbose: bool = True) -> dict:
-    stats = {"pairs": 0, "published": 0, "failed": 0, "repaired": 0, "cached": 0}
+    stats = {"pairs": 0, "published": 0, "failed": 0, "repaired": 0, "cached": 0, "refused": 0}
 
     with session() as conn:
         moods = [dict(r) for r in conn.execute(
@@ -271,6 +276,15 @@ def rewrite_all(limit_articles: int = 0, only_mood: str = "", provider: str | No
                     if att.verdict != "PASS":
                         for v in att.violations[:3]:
                             print(f"        {v}")
+                if att.verdict == "REFUSED":
+                    # Тон закрыт для этой новости: уменьшаем ожидаемое число режимов,
+                    # иначе новость никогда не станет готовой.
+                    with session() as conn:
+                        conn.execute(
+                            "UPDATE articles SET moods_expected = MAX(1, moods_expected - 1)"
+                            " WHERE id=?", (article["id"],))
+                    stats["refused"] = stats.get("refused", 0) + 1
+                    break
                 if att.verdict == "PASS":
                     published = True
                     stats["published"] += 1

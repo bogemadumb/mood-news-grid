@@ -209,6 +209,23 @@ def mark_sensitivity_cmd():
     mark_articles()
 
 
+@app.command("refresh-ready")
+def refresh_ready_cmd():
+    """Пересчитать готовность новостей: сколько тонов опубликовано против ожидаемых."""
+    from app.db import session
+
+    with session() as conn:
+        conn.execute("""UPDATE articles SET moods_ready = (
+              SELECT COUNT(DISTINCT mood_code) FROM rewrites
+              WHERE article_id = articles.id AND status='published')""")
+        conn.execute("""UPDATE articles SET status =
+              CASE WHEN moods_ready >= moods_expected AND moods_ready > 0
+                   THEN 'ready' ELSE 'new' END""")
+        n = conn.execute("""SELECT COUNT(*) FROM articles
+                            WHERE moods_ready >= moods_expected AND moods_ready > 0""").fetchone()[0]
+    typer.echo(f"полностью готовых новостей: {n}")
+
+
 @app.command("check-robots")
 def check_robots():
     """Выкачать robots.txt каждого источника и показать, что там про нас."""
