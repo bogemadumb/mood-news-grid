@@ -261,3 +261,62 @@ def regenerate(article_id: int, mood: str = Form("neutral")):
         "body": attempt.body,
         "violations": attempt.violations,
     })
+
+
+VERDICT_HELP = {
+    "PASS": "факты на месте, текст действительно переписан — опубликовано",
+    "COPY": "модель вернула почти дословный оригинал: формально факты целы, но работы нет",
+    "FAIL": "факт пропал, изменился или появился новый — публикация заблокирована",
+    "BAD_JSON": "ответ не в формате: сломанный JSON либо отказ модели переписывать",
+    "TOO_LONG": "пересказ длиннее оригинала более чем в 1,6 раза",
+    "TOO_SHORT": "пересказ короче 60% оригинала",
+    "WRONG_LANGUAGE": "ответ не на русском",
+    "LLM_ERROR": "провайдер не ответил",
+}
+
+
+@app.get("/stats", response_class=HTMLResponse)
+def stats_page(request: Request):
+    s = repository.stats()
+    return templates.TemplateResponse(request, "stats.html", {
+        "s": s, "verdict_help": VERDICT_HELP,
+        "last_fetch": human_time(s.get("last_fetch")), "git_sha": settings.git_sha,
+    })
+
+
+@app.get("/karantin", response_class=HTMLResponse)
+def karantin(request: Request):
+    items = repository.failed_rewrites()
+    s = repository.stats()
+    total = (s["published"] or 0) + (s["failed"] or 0)
+    return templates.TemplateResponse(request, "karantin.html", {
+        "items": items, "total_failed": s["failed"], "total_published": s["published"],
+        "share": (s["failed"] / total * 100) if total else 0, "git_sha": settings.git_sha,
+    })
+
+
+@app.get("/review", response_class=HTMLResponse)
+def review(request: Request):
+    ready = repository.showcase_articles(limit=1)
+    with db.session() as conn:
+        refused = conn.execute(
+            "SELECT id FROM articles WHERE sensitivity='death' AND in_showcase=1 LIMIT 1"
+        ).fetchone()
+    return templates.TemplateResponse(request, "review.html", {
+        "sample_id": ready[0]["id"] if ready else None,
+        "refused_id": refused["id"] if refused else None,
+        "case_count": 17, "test_count": 47, "git_sha": settings.git_sha,
+    })
+
+
+@app.get("/api/stats")
+def api_stats():
+    return repository.stats()
+
+
+@app.get("/robots.txt")
+def robots():
+    """Демо закрыто от индексации: чужие новости не должны попадать в поиск отсюда."""
+    from fastapi.responses import PlainTextResponse
+
+    return PlainTextResponse("User-agent: *\nDisallow: /\n")

@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Что внутри — Mood News Grid</title>
+<link rel="stylesheet" href="{{ url_for('static', path='/tokens.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='/moods.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='/compare.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='/pages.css') }}">
+</head>
+<body>
+
+<div class="wrap">
+  <div class="topbar">
+    <a class="back" href="{{ url_for('index') }}">← лента</a>
+    <span class="spacer"></span>
+    <span>что внутри</span>
+  </div>
+
+  <h1 class="page-title">Что внутри</h1>
+  <p class="page-lead">
+    Все цифры на этой странице считаются из базы прямо сейчас, ни одна не зашита в шаблон.
+    База — один файл SQLite, его можно скачать и открыть чем угодно.
+  </p>
+
+  <section class="numbers">
+    <div><b>{{ s.articles }}</b><span>материалов собрано</span></div>
+    <div><b>{{ s.showcase }}</b><span>в витрине</span></div>
+    <div><b>{{ s.published }}</b><span>пересказов прошли сверку</span></div>
+    <div><b>{{ s.failed }}</b><span>забраковано</span></div>
+    <div><b>{{ s.first_try }}</b><span>прошли с первой попытки</span></div>
+    <div><b>{{ s.hallucinations }}</b><span>выдуманных фактов поймано</span></div>
+  </section>
+
+  <section class="block-sec">
+    <h2>Главный инвариант</h2>
+    <p class="invariant {{ 'ok' if s.no_call == 0 else 'bad' }}">
+      Опубликованных текстов без записи вызова модели: <b>{{ s.no_call }}</b> из {{ s.published }}.
+    </p>
+    <p class="hint">
+      ТЗ запрещает готовить настроенческие версии вручную. Здесь это не обещание, а ограничение
+      уровня схемы: строка пересказа физически не сохранится без ссылки на конкретный вызов
+      модели. Проверяется тестом <code>tests/test_no_handwriting.py</code>, который вдобавок
+      сверяет, что текст посимвольно содержится в сыром ответе модели.
+    </p>
+  </section>
+
+  <section class="block-sec">
+    <h2>По интонациям</h2>
+    <table class="data">
+      <thead><tr>
+        <th>режим</th><th>температура</th><th>попыток</th><th>опубликовано</th>
+        <th>непохожесть</th><th>сохранность фактов</th>
+      </tr></thead>
+      <tbody>
+      {% for m in s.by_mood %}
+        <tr>
+          <td>{{ m.title_ru }}</td>
+          <td>{{ m.temperature }}</td>
+          <td>{{ m.attempts }}</td>
+          <td>{{ m.published or 0 }}</td>
+          <td>{{ '%.0f%%'|format((m.distance or 0) * 100) }}</td>
+          <td>{{ m.fpi if m.fpi is not none else '—' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p class="hint">
+      Порог непохожести у нейтрального режима ниже (6% против 15%): новость и так написана
+      нейтральным языком, требовать от него сильного расхождения значило бы требовать
+      перефразирования ради перефразирования.
+    </p>
+  </section>
+
+  <section class="block-sec">
+    <h2>Вердикты сверки</h2>
+    <table class="data">
+      <thead><tr><th>вердикт</th><th>сколько</th><th>что значит</th></tr></thead>
+      <tbody>
+      {% for v in s.verdicts %}
+        <tr>
+          <td><code>{{ v.verdict }}</code></td>
+          <td>{{ v.n }}</td>
+          <td>{{ verdict_help.get(v.verdict, '') }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  {% if s.hard_kinds %}
+  <section class="block-sec">
+    <h2>На чём чаще всего спотыкается модель</h2>
+    <table class="data">
+      <thead><tr><th>нарушение</th><th>сколько</th></tr></thead>
+      <tbody>
+      {% for k in s.hard_kinds %}
+        <tr><td><code>{{ k.verdict }}</code></td><td>{{ k.n }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+
+  <section class="block-sec">
+    <h2>Источники</h2>
+    <table class="data">
+      <thead><tr><th>издание</th><th>материалов</th><th>в витрине</th><th>чем извлекали текст</th></tr></thead>
+      <tbody>
+      {% for src in s.sources %}
+        <tr>
+          <td>{{ src.title }}</td>
+          <td>{{ src.articles }}</td>
+          <td>{{ src.showcase or 0 }}</td>
+          <td><code>{{ src.methods or '—' }}</code></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p class="hint">
+      Универсального способа извлечения нет: на одном издании выигрывает свой CSS-селектор,
+      на другом trafilatura. Порядок ступеней задан у каждого источника отдельно и выведен
+      из замеров, а не из предпочтений.
+    </p>
+  </section>
+
+  <section class="block-sec">
+    <h2>Стоп-кран</h2>
+    <p>
+      Материалов, отмеченных как связанные с гибелью людей:
+      <b>{{ s.sensitive }}</b>, из них в витрине <b>{{ s.sensitive_showcase }}</b>.
+      На них доступен только нейтральный пересказ.
+    </p>
+    <p class="hint">
+      Фильтр появился не из осторожности: на живом прогоне модель сама трижды отказалась
+      пересказывать бодро новость о гибели велогонщика и написала, что конвейеру нужен
+      такой классификатор.
+    </p>
+  </section>
+
+  <section class="block-sec">
+    <h2>Данные наружу</h2>
+    <ul class="links">
+      <li><a href="{{ url_for('api_articles') }}">/api/articles</a> — витрина в JSON</li>
+      <li><a href="{{ url_for('api_sources') }}">/api/sources</a> — источники</li>
+      <li><a href="{{ url_for('api_stats') }}">/api/stats</a> — эти же цифры машиночитаемо</li>
+      <li><a href="{{ url_for('karantin') }}">/karantin</a> — забракованные варианты</li>
+    </ul>
+  </section>
+</div>
+
+<footer class="site-foot wrap">
+  <span>сборка {{ git_sha }} · собрано {{ last_fetch }}</span>
+  <span><a href="{{ url_for('index') }}">вся лента</a></span>
+</footer>
+</body>
+</html>

@@ -157,3 +157,66 @@ def ready_article_ids() -> set[int]:
             """SELECT article_id FROM rewrites WHERE status='published'
                GROUP BY article_id HAVING COUNT(DISTINCT mood_code) >= ?""", (active,)).fetchall()
         return {r["article_id"] for r in rows}
+
+
+def stats() -> dict:
+    """Цифры для страницы статистики. Всё считается из базы, ничего не зашито."""
+    with session() as conn:
+        row = conn.execute("""
+            SELECT
+              (SELECT COUNT(*) FROM articles) AS articles,
+              (SELECT COUNT(*) FROM articles WHERE in_showcase=1) AS showcase,
+              (SELECT COUNT(*) FROM articles WHERE sensitivity='death') AS sensitive,
+              (SELECT COUNT(*) FROM articles WHERE sensitivity='death' AND in_showcase=1) AS sensitive_showcase,
+              (SELECT COUNT(*) FROM rewrites) AS attempts,
+              (SELECT COUNT(*) FROM rewrites WHERE status='published') AS published,
+              (SELECT COUNT(*) FROM rewrites WHERE status='failed') AS failed,
+              (SELECT COUNT(*) FROM rewrites WHERE status='published' AND attempt=1) AS first_try,
+              (SELECT COUNT(*) FROM hallucinations) AS hallucinations,
+              (SELECT COUNT(*) FROM llm_calls) AS llm_calls,
+              (SELECT COUNT(*) FROM llm_calls WHERE error IS NOT NULL) AS llm_errors,
+              (SELECT COUNT(*) FROM incidents) AS incidents,
+              (SELECT MAX(fetched_at) FROM articles) AS last_fetch
+        """).fetchone()
+        data = dict(row)
+        data["by_mood"] = [dict(r) for r in conn.execute("""
+            SELECT m.code, m.title_ru, m.temperature,
+                   COUNT(r.id) AS attempts,
+                   SUM(CASE WHEN r.status='published' THEN 1 ELSE 0 END) AS published,
+                   ROUND(AVG(CASE WHEN r.status='published' THEN r.style_distance END), 3) AS distance,
+                   ROUND(AVG(CASE WHEN r.status='published' THEN r.check_score END), 1) AS fpi
+            FROM moods m LEFT JOIN rewrites r ON r.mood_code = m.code
+            WHERE m.is_active=1 GROUP BY m.code ORDER BY m.sort_order""")]
+        data["verdicts"] = [dict(r) for r in conn.execute(
+            "SELECT verdict, COUNT(*) n FROM rewrites WHERE verdict IS NOT NULL"
+            " GROUP BY verdict ORDER BY n DESC")]
+        data["sources"] = [dict(r) for r in conn.execute("""
+            SELECT s.code, s.title, COUNT(a.id) articles,
+                   SUM(CASE WHEN a.in_showcase=1 THEN 1 ELSE 0 END) showcase,
+                   GROUP_CONCAT(DISTINCT a.extraction_method) methods
+            FROM sources s LEFT JOIN articles a ON a.source_id=s.id
+            WHERE s.enabled=1 GROUP BY s.code ORDER BY articles DESC""")]
+        data["hard_kinds"] = [dict(r) for r in conn.execute("""
+            SELECT verdict, COUNT(*) n FROM fact_checks WHERE severity=2
+            GROUP BY verdict ORDER BY n DESC LIMIT 8""")]
+        data["no_call"] = conn.execute(
+            "SELECT COUNT(*) n FROM rewrites WHERE status='published'"
+            " AND generator='llm' AND llm_call_id IS NULL").fetchone()["n"]
+        return data
+
+
+def failed_rewrites(limit: int = 40) -> list[dict]:
+    """Забракованные варианты для карантина. Показывать свой брак — самый честный аргумент."""
+    with session() as conn:
+        rows = conn.execute("""
+            SELECT r.id, r.article_id, r.mood_code, r.attempt, r.verdict, r.style_distance,
+                   r.body_rewritten, a.title, m.title_ru AS mood_title,
+                   (SELECT GROUP_CONCAT(note, ' · ') FROM fact_checks fc
+                     WHERE fc.rewrite_id=r.id AND fc.severity=2) AS hard_notes,
+                   (SELECT GROUP_CONCAT(surface, ' · ') FROM hallucinations h
+                     WHERE h.rewrite_id=r.id) AS invented
+            FROM rewrites r JOIN articles a ON a.id=r.article_id
+            JOIN moods m ON m.code=r.mood_code
+            WHERE r.status='failed'
+            ORDER BY r.id DESC LIMIT ?""", (limit,)).fetchall()
+        return [dict(r) for r in rows]

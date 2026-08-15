@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Проверяете тестовые? 90 секунд — Mood News Grid</title>
+<link rel="stylesheet" href="{{ url_for('static', path='/tokens.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='/moods.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='/compare.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='/pages.css') }}">
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <a class="back" href="{{ url_for('index') }}">← лента</a>
+    <span class="spacer"></span><span>для проверяющего</span>
+  </div>
+
+  <h1 class="page-title">Проверяете тестовые? 90 секунд</h1>
+  <p class="page-lead">
+    Задание: новости в разных эмоциональных режимах, факты менять нельзя. Ниже маршрут
+    по четырём местам, где видно, что именно сделано, и честный список того, что здесь слабо.
+  </p>
+
+  <ol class="route">
+    <li>
+      <a href="{{ url_for('index') }}">Лента</a> — настоящие новости из шести открытых лент,
+      у каждой карточки ссылка на конкретную статью в источнике.
+    </li>
+    <li>
+      {% if sample_id %}<a href="{{ url_for('article_page', article_id=sample_id) }}?mood=ironic">Экран сравнения</a>{% else %}Экран сравнения{% endif %}
+      — оригинал и пересказ рядом. Наведите курсор на подсвеченный факт: загорится его
+      двойник в другой колонке. Переключите режим наверху: меняется не только текст,
+      но и сам набор — вес, наклон, интерлиньяж, плотность.
+    </li>
+    <li>
+      {% if refused_id %}<a href="{{ url_for('article_page', article_id=refused_id) }}?mood=ironic">Стоп-кран</a>{% else %}Стоп-кран{% endif %}
+      — на новости о гибели людей ирония и радость отключены, и написано, по какому правилу.
+    </li>
+    <li>
+      <a href="{{ url_for('karantin') }}">Карантин</a> и
+      <a href="{{ url_for('stats_page') }}">что внутри</a> — собственный брак и все цифры,
+      посчитанные из базы.
+    </li>
+  </ol>
+
+  <h2 class="block-sec" style="border:0;padding:0;margin-bottom:14px">Где эта работа слаба</h2>
+  <p class="weak">
+    <b>Проверка сверяет текст с источником, а не с реальностью.</b> Если новость врёт,
+    пересказ повторит ложь и получит зелёный штамп. Задача была другой, но говорить об этом
+    честнее, чем молчать.
+  </p>
+  <p class="weak">
+    <b>Полнота извлечения фактов не измерена численно.</b> Стенд с искусственными искажениями
+    и подсчётом ложных срабатываний — следующий шаг, он запланирован, но не сделан.
+    Пока есть только набор из {{ case_count }} ручных кейсов, на которых детектор
+    классифицирует всё верно.
+  </p>
+  <p class="weak">
+    <b>Лента обновляется вручную.</b> Конвейер живёт на машине автора, сервер показывает
+    снимок базы. Так сделано намеренно: иначе токен доступа к модели пришлось бы держать
+    на публичной машине.
+  </p>
+
+  <h2 class="block-sec" style="border:0;padding:0;margin:26px 0 14px">Что здесь ИИ, а что я</h2>
+  <p style="max-width:46rem">
+    Модель делает ровно одно: переписывает текст под интонацию. Всё остальное —
+    детерминированный код: извлечение фактов регулярками и морфологией, сверка,
+    правило публикации, ремонтный цикл. Проверять модель второй моделью я сознательно
+    не стал: тогда пришлось бы верить уже двум, и стоило бы это денег на каждый показ.
+  </p>
+
+  <h2 class="block-sec" style="border:0;padding:0;margin:26px 0 14px">Воспроизвести цифры</h2>
+  <p style="max-width:46rem">
+    <code>git clone … &amp;&amp; make venv &amp;&amp; make test</code> — {{ test_count }} тестов
+    без сети и без ключей. Среди них проверка главного запрета ТЗ: у каждого опубликованного
+    текста есть запись вызова модели, и текст посимвольно содержится в её ответе.
+  </p>
+</div>
+<footer class="site-foot wrap">
+  <span>сборка {{ git_sha }}</span>
+  <span><a href="{{ url_for('index') }}">вся лента</a></span>
+</footer>
+</body>
+</html>

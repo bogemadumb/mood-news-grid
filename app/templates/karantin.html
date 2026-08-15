@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Карантин — Mood News Grid</title>
+<link rel="stylesheet" href="{{ url_for('static', path='/tokens.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='/moods.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='/compare.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='/pages.css') }}">
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <a class="back" href="{{ url_for('index') }}">← лента</a>
+    <span class="spacer"></span><span>карантин</span>
+  </div>
+
+  <h1 class="page-title">Карантин</h1>
+  <p class="page-lead">
+    Здесь лежит собственный брак: пересказы, которые не прошли сверку и в ленте
+    не показывались ни секунды. Показывать свои неудачи — самый быстрый способ доказать,
+    что проверка действительно блокирует, а не украшает интерфейс зелёным бейджем.
+  </p>
+
+  <section class="numbers">
+    <div><b>{{ total_failed }}</b><span>забраковано</span></div>
+    <div><b>{{ total_published }}</b><span>прошло</span></div>
+    <div><b>{{ '%.0f%%'|format(share) }}</b><span>доля брака</span></div>
+  </section>
+
+  {% for r in items %}
+  <article class="q-item">
+    <div class="q-head">
+      <span class="v">{{ r.verdict }}</span>
+      <span>{{ r.mood_title }}</span>
+      <span>попытка {{ r.attempt }}</span>
+      <span>непохожесть {{ '%.0f%%'|format((r.style_distance or 0) * 100) }}</span>
+    </div>
+    <h2 class="q-title">{{ r.title }}</h2>
+    <p class="q-why">
+      {% if r.hard_notes %}не нашлось в пересказе: {{ r.hard_notes[:200] }}{% endif %}
+      {% if r.invented %}{% if r.hard_notes %} · {% endif %}выдумано: {{ r.invented[:120] }}{% endif %}
+      {% if not r.hard_notes and not r.invented %}
+        {% if r.verdict == 'COPY' %}текст почти дословно повторяет оригинал — это не пересказ
+        {% elif r.verdict == 'BAD_JSON' %}модель ответила не в том формате либо отказалась переписывать
+        {% elif r.verdict in ('TOO_LONG','TOO_SHORT') %}длина вышла за допустимые границы
+        {% else %}семантическое расхождение с оригиналом{% endif %}
+      {% endif %}
+    </p>
+    {% if r.body_rewritten %}<div class="q-text">{{ r.body_rewritten[:420] }}…</div>{% endif %}
+  </article>
+  {% endfor %}
+
+  {% if not items %}<p class="hint">Пока ни одного забракованного варианта.</p>{% endif %}
+</div>
+<footer class="site-foot wrap">
+  <span>сборка {{ git_sha }}</span>
+  <span><a href="{{ url_for('stats_page') }}">что внутри</a></span>
+</footer>
+</body>
+</html>
