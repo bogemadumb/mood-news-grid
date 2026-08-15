@@ -1,0 +1,9 @@
+LICENSE
+pyproject.toml
+app/__init__.py
+mood_news_grid.egg-info/PKG-INFO
+mood_news_grid.egg-info/SOURCES.txt
+mood_news_grid.egg-info/dependency_links.txt
+mood_news_grid.egg-info/requires.txt
+mood_news_grid.egg-info/top_level.txt
+pipeline/__init__.py

@@ -1,0 +1,85 @@
+# Источники новостей.
+# Правило отбора: только издания, чья лента отдаёт осмысленный объём текста —
+# переписывать под настроение заголовок из 60 знаков бессмысленно.
+# ТАСС и РИА сюда не попали: в их RSS текста нет вообще.
+# Медиа со статусом нежелательной организации не берём осознанно.
+
+# Только ASCII: HTTP-заголовки кириллицу не переживают (UnicodeEncodeError на latin-1).
+user_agent: "MoodNewsGrid/1.0 (+https://bogemadumb.ru/mood/about; contact milistane@gmail.com)"
+request_timeout: 20
+pause_between_requests: 1.5
+
+sources:
+  - code: rbc
+    title: РБК
+    homepage_url: https://www.rbc.ru
+    feed_url: https://rssexport.rbc.ru/rbcnews/news/30/full.rss
+    fulltext_field: rbc_news_full-text
+    why: |
+      Единственный крупный общественно-политический источник, который отдаёт полный текст
+      прямо в ленте. Страница статьи закрыта для обычного curl, но фид открыт.
+    enabled: true
+
+  - code: lenta
+    title: Лента.ру
+    homepage_url: https://lenta.ru
+    feed_url: https://lenta.ru/rss/news
+    fulltext_field: null
+    selector: "div.topic-body__content"
+    extra_headers:
+      Cookie: "unity_pause_sso=1"
+    prefer: selector
+    why: |
+      Быстрая новостная лента. Без этой куки сайт отдаёт JS-заглушку на 1757 байт
+      вместо статьи — проверено. Со страницы берётся 637-1205 знаков (15.08.2026).
+    enabled: true
+
+  - code: kommersant
+    title: Коммерсантъ
+    homepage_url: https://www.kommersant.ru
+    feed_url: https://www.kommersant.ru/RSS/news.xml
+    fulltext_field: null
+    selector: "div.doc__body p.doc__text"
+    prefer: selector
+    # DNS Коммерсанта не резолвится с Мака (залипший системный резолвер macOS),
+    # с сервера отвечает нормально: 301 -> лента. Селектор проверяется на сервере.
+    why: Деловые новости, плотные по фактам — числа, компании, суммы.
+    enabled: true
+
+  - code: nplus1
+    title: N+1
+    homepage_url: https://nplus1.ru
+    feed_url: https://nplus1.ru/rss
+    fulltext_field: content_encoded
+    prefer: feed
+    why: |
+      Наука. Даёт поток нейтральных новостей без человеческих трагедий —
+      нужен, чтобы витрина не состояла из карточек-отказов при выборе иронии.
+      Проверено 15.08.2026: 7 записей из 10 несут текст длиннее 400 знаков, медиана 533.
+    enabled: true
+
+  - code: naked-science
+    title: Naked Science
+    homepage_url: https://naked-science.ru
+    feed_url: https://naked-science.ru/feed
+    # Проверено 15.08.2026: полного текста в ленте НЕТ (content = 60 знаков, summary = 171).
+    # Текст добирается со страницы, и там trafilatura обходит любой селектор:
+    # 6689-9682 знака против 2442-6522 у div.body.
+    fulltext_field: null
+    prefer: trafilatura
+    why: |
+      Научпоп. Второй безопасный источник без трагедий.
+      Материалы длинные (6-10 тыс. знаков), в витрину пойдут только короткие —
+      остальные останутся в базе, но карточками не станут.
+    enabled: true
+
+  - code: 3dnews
+    title: 3DNews
+    homepage_url: https://3dnews.ru
+    feed_url: https://3dnews.ru/news/rss/
+    fulltext_field: null
+    # Проверено 15.08.2026: селектор берёт втрое больше trafilatura (2902-4818 против 775-3098).
+    selector: "div.article-entry"
+    prefer: selector
+    why: Технологии. Много чисел и названий компаний, ноль чувствительных тем.
+    enabled: true

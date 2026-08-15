@@ -1,0 +1,19 @@
+User-agent: *
+Allow: /
+Disallow: *?from=*
+Disallow: *from-source=*
+Disallow: *t:preview*
+Disallow: *honor/*
+
+Clean-param: text /
+Clean-param: __twitter_impression /
+Clean-param: amp_lite /
+Clean-param: future-link /
+Clean-param: past-link /
+Clean-param: lang /
+Clean-param: top-articles-block /
+
+Sitemap: https://3dnews.ru/export/sitemaps/sitemap.xml
+
+User-Agent: Yandex
+Sitemap: https://3dnews.ru/export/sitemaps/sitemap_yandex.xml

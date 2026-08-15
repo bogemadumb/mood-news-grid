@@ -1,0 +1,67 @@
+[project]
+name = "mood-news-grid"
+version = "0.1.0"
+description = "Реальные новости в разных эмоциональных режимах с автоматической проверкой сохранности фактов"
+requires-python = ">=3.12,<3.13"
+
+dependencies = [
+    "fastapi==0.141.1",
+    "uvicorn[standard]>=0.34",
+    "jinja2==3.1.6",
+    "python-multipart>=0.0.20",
+    "pydantic-settings>=2.7",
+    "httpx>=0.28",
+    "typer>=0.15",
+    "pyyaml>=6.0",
+
+    "feedparser==6.0.14",
+    "trafilatura==2.2.0",
+    "dateparser==1.4.2",
+    "lxml>=5.3",
+    "beautifulsoup4>=4.12",
+
+    "natasha==1.6.0",
+    "pymorphy3==2.0.6",
+    "razdel>=0.5",
+    "rapidfuzz>=3.10",
+    # 3.x — переписанная на Rust версия, русский из неё выпал (проверено 15.08.2026).
+    "text2num>=2.5,<3",
+
+    # natasha тянет pymorphy2, который импортирует pkg_resources.
+    # В setuptools 81+ pkg_resources удалён -> ModuleNotFoundError при импорте natasha.
+    "setuptools<81",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.25",
+    "hypothesis>=6.120",
+    "ruff>=0.9",
+    "detect-secrets>=1.5",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore:pkg_resources is deprecated:UserWarning",
+    "ignore::DeprecationWarning:pymorphy2",
+]
+markers = [
+    "network: тест ходит в интернет, в обычном CI пропускается",
+]
+
+[build-system]
+requires = ["setuptools<81"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["app", "pipeline"]

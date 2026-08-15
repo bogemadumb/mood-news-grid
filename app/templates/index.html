@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Mood News Grid</title>
+<style>
+  :root {
+    --bg: #fbf9f4; --ink: #17151a; --muted: #6b6570;
+    --line: #e3ddd2; --accent: #7a1f2b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14131a; --ink: #f0ece6; --muted: #9a93a0; --line: #2c2934; --accent: #d9808d; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: grid; place-items: center; min-height: 100dvh; padding: 24px;
+  }
+  main { max-width: 44rem; }
+  h1 { font-size: clamp(1.8rem, 5vw, 2.6rem); line-height: 1.15; margin: 0 0 .6rem; letter-spacing: -.02em; }
+  .lead { color: var(--muted); margin: 0 0 2rem; }
+  .stage { border: 1px solid var(--line); border-radius: 12px; padding: 1.2rem 1.4rem; }
+  .stage h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em;
+              color: var(--accent); margin: 0 0 .8rem; }
+  ol { margin: 0; padding-left: 1.2rem; }
+  li { margin: .25rem 0; }
+  li.done { color: var(--muted); text-decoration: line-through; }
+  footer { margin-top: 2rem; font-size: .85rem; color: var(--muted); }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Mood News Grid</h1>
+  <p class="lead">
+    Реальные новости, которые можно читать в разных эмоциональных режимах.
+    Факты при этом не меняются — и это проверяется автоматически, а не обещается на словах.
+  </p>
+
+  <div class="stage">
+    <h2>Стадия сборки</h2>
+    <ol>
+      <li class="done">Каркас, окружение, проверка источников</li>
+      <li>Сбор реальных новостей и грид</li>
+      <li>Переписывание тона и проверка сохранности фактов</li>
+      <li>Комплект сдачи: README, скриншоты, соответствие ТЗ</li>
+    </ol>
+  </div>
+
+  <footer>
+    Сборка {{ git_sha }} · <a href="https://bogemadumb.ru">bogemadumb.ru</a>
+  </footer>
+</main>
+</body>
+</html>
