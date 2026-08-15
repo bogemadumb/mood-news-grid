@@ -203,3 +203,35 @@ def test_same_speaker_survives_declension(a, b, expected):
     from pipeline.facts.check import same_speaker
 
     assert same_speaker(a, b) is expected
+
+
+def test_speaker_platform_is_not_a_speaker():
+    """«Разместила на своей странице в соцсети X» — говорящий не соцсеть.
+
+    Разбор принимал название площадки за спикера, и корректная атрибуция в пересказе
+    («Аюсо заявила») считалась подменой. Ловится только на живой новости.
+    """
+    from pipeline.facts.check import compare_speakers, plausible_speaker
+
+    assert not plausible_speaker("X")
+    assert not plausible_speaker("Telegram")
+    assert plausible_speaker("Аюсо")
+
+    orig = {"lemmas": {"аюсо", "санчес", "испания"}}
+    # мусорная атрибуция в оригинале + имя из текста в пересказе — не нарушение
+    assert compare_speakers("X", "Аюсо", orig) == "ok"
+    # имя, которого в оригинале нет вообще, — выдумка
+    assert compare_speakers("X", "Меркель", orig) == "speaker_changed"
+    # атрибуция потеряна — мягкое замечание, не блокировка
+    assert compare_speakers("Аюсо", None, orig) == "speaker_lost"
+
+
+def test_foreign_surname_lemma_guess_does_not_break_match():
+    """pymorphy3 считает «Аюсо» прилагательным и лемматизирует в «аюсый».
+
+    Поэтому сравнение идёт по двум формам сразу — лемме и самому слову.
+    """
+    from pipeline.facts.check import same_speaker
+
+    assert same_speaker("Аюсо", "Исабель Диас Аюсо")
+    assert not same_speaker("Аюсо", "Санчес")

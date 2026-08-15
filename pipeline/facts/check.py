@@ -118,10 +118,14 @@ def _speaker_lemmas(name: str) -> frozenset:
     """
     if not name:
         return frozenset()
-    return frozenset(
-        MORPH_PARSER.parse(w)[0].normal_form
-        for w in re.findall(r"[А-Яа-яЁёA-Za-z-]{2,}", name)
-    )
+    forms = set()
+    for w in re.findall(r"[А-Яа-яЁёA-Za-z-]{2,}", name):
+        low = w.lower()
+        forms.add(low)
+        # Морфология угадывает иностранные фамилии неверно: «Аюсо» -> «аюсый».
+        # Поэтому в сравнение идут обе формы — и лемма, и само слово.
+        forms.add(MORPH_PARSER.parse(w)[0].normal_form)
+    return frozenset(forms)
 
 
 def same_speaker(a: str, b: str) -> bool:
@@ -134,10 +138,52 @@ def same_speaker(a: str, b: str) -> bool:
     return bool(la & lb)
 
 
-def match_quote(f, target):
+# Названия площадок, куда упирается атрибуция: «разместила на своей странице в соцсети X»
+# -> разбор считает говорящим саму соцсеть. Поймано на живой новости про Аюсо.
+PLATFORMS = {'x', 'twitter', 'telegram', 'facebook', 'instagram', 'вконтакте', 'вк',
+             'youtube', 'tiktok', 'threads', 'соцсеть', 'соцсети'}
+
+
+def plausible_speaker(name) -> bool:
+    """Похоже ли это на говорящего вообще.
+
+    Отсекаются однобуквенные обрывки и названия площадок публикации.
+    Если атрибуция мусорная, честнее считать её неизвестной, чем сравнивать мусор с именем.
+    """
+    if not name:
+        return False
+    clean = str(name).strip()
+    return len(clean) >= 3 and clean.lower() not in PLATFORMS
+
+
+def compare_speakers(orig_speaker, new_speaker, orig_facts) -> str:
+    """Вернуть 'ok', 'speaker_changed' или 'speaker_lost'.
+
+    Четыре ситуации, и только одна из них — настоящее нарушение:
+      оба известны и разные            -> подмена говорящего, нарушение;
+      оба известны и совпадают         -> норма (с поправкой на падежи);
+      в оригинале мусор или пусто      -> сравнивать не с чем. Если в пересказе появилось имя,
+                                          оно должно встречаться в оригинале — иначе выдумка;
+      в оригинале есть, в пересказе нет -> атрибуция потеряна, помечаем мягко.
+    """
+    o_ok, n_ok = plausible_speaker(orig_speaker), plausible_speaker(new_speaker)
+    if o_ok and n_ok:
+        return 'ok' if same_speaker(orig_speaker, new_speaker) else 'speaker_changed'
+    if o_ok and not n_ok:
+        return 'speaker_lost'
+    if not o_ok and n_ok:
+        # Модель могла восстановить говорящего из контекста статьи — это не выдумка,
+        # если имя есть в оригинале. Если имени нет — выдумала.
+        lemmas = _speaker_lemmas(new_speaker)
+        return 'ok' if lemmas & set(orig_facts['lemmas']) else 'speaker_changed'
+    return 'ok'
+
+
+def match_quote(f, target, orig_facts=None):
     for c in target['quotes']:
         if c['norm'] == f['norm']:
-            st = 'ok' if same_speaker(f.get('speaker'), c.get('speaker')) else 'speaker_changed'
+            st = compare_speakers(f.get('speaker'), c.get('speaker'),
+                                  orig_facts or {'lemmas': set()})
             return st, c['surface']
     for c in target['quotes']:
         if fuzz.ratio(f['norm'], c['norm']) >= 92:
@@ -145,7 +191,7 @@ def match_quote(f, target):
     return 'missing', None
 
 SEVERITY = {'ok': 0, 'approx_changed': 2, 'alias': 0, 'short': 0, 'fuzzy': 1, 'rounded': 1, 'partial': 1,
-            'unit_changed': 2, 'speaker_changed': 2, 'paraphrased': 2, 'missing': 2}
+            'unit_changed': 2, 'speaker_changed': 2, 'speaker_lost': 1, 'paraphrased': 2, 'missing': 2}
 WEIGHT = {'number': 1.0, 'money': 1.0, 'percent': 1.0, 'date': 1.0,
           'per': 1.0, 'org': 0.8, 'loc': 0.6, 'quote': 1.2}
 
@@ -160,7 +206,7 @@ def check(orig_text, new_text, published_at):
     for f in O['entities']:
         st, got = match_entity(f, N); rows.append((f['kind'], f['surface'], st, got))
     for f in O['quotes']:
-        st, got = match_quote(f, N); rows.append(('quote', f['surface'][:40], st, got))
+        st, got = match_quote(f, N, O); rows.append(('quote', f['surface'][:40], st, got))
     # обратная проверка: выдуманные числа/даты/сущности, которых нет в оригинале
     halluc = []
     for f in N['numbers']:
