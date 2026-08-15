@@ -25,6 +25,7 @@ from app.db import session
 from pipeline import llm
 from pipeline.facts.check import check
 from pipeline.normalize import text_sha256
+from pipeline.sensitivity import mood_allowed
 
 MAX_ATTEMPTS = 3
 STYLE_DISTANCE_MIN = 0.15
@@ -228,12 +229,21 @@ def rewrite_all(limit_articles: int = 0, only_mood: str = "", provider: str | No
             + (" AND code=?" if only_mood else "") + " ORDER BY sort_order",
             (only_mood,) if only_mood else ()).fetchall()]
         articles = [dict(r) for r in conn.execute(
-            """SELECT id, title, rewrite_source_text, source_text_sha256, published_at
+            """SELECT id, title, rewrite_source_text, source_text_sha256, published_at,
+                      COALESCE(sensitivity,'none') AS sensitivity, sensitivity_reason
                FROM articles WHERE in_showcase=1 ORDER BY published_at DESC"""
             + (f" LIMIT {int(limit_articles)}" if limit_articles else "")).fetchall()]
 
     for article in articles:
-        for mood in moods:
+        allowed = [m for m in moods if mood_allowed(m, article["sensitivity"])]
+        with session() as conn:
+            conn.execute("UPDATE articles SET moods_expected=? WHERE id=?",
+                         (len(allowed), article["id"]))
+        if len(allowed) < len(moods) and verbose:
+            print(f"{article['id']:>4} стоп-кран: {article['sensitivity']}, "
+                  f"доступно тонов {len(allowed)} из {len(moods)} "
+                  f"({article['sensitivity_reason'] or 'правило'})")
+        for mood in allowed:
             with session() as conn:
                 done = conn.execute(
                     "SELECT 1 FROM rewrites WHERE article_id=? AND mood_code=? AND status='published'",
@@ -277,10 +287,10 @@ def rewrite_all(limit_articles: int = 0, only_mood: str = "", provider: str | No
                    SELECT COUNT(DISTINCT mood_code) FROM rewrites
                    WHERE article_id = articles.id AND status='published')"""
         )
-        active = len(moods)
         conn.execute(
-            "UPDATE articles SET status = CASE WHEN moods_ready >= ? THEN 'ready' ELSE status END",
-            (active,),
+            """UPDATE articles SET status =
+                 CASE WHEN moods_ready >= moods_expected AND moods_ready > 0
+                      THEN 'ready' ELSE status END"""
         )
 
     return stats

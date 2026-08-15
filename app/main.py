@@ -151,6 +151,19 @@ def article_page(request: Request, article_id: int, mood: str = "neutral"):
         mood = codes[0] if codes else "neutral"
     mood_row = repository.mood_by_code(mood)
 
+    # Стоп-кран: на материалах о гибели людей эмоциональные режимы отключены.
+    from pipeline.sensitivity import mood_allowed
+
+    sensitivity = article.get("sensitivity") or "none"
+    blocked = [m["code"] for m in moods if not mood_allowed(m, sensitivity)]
+    if mood in blocked:
+        return HTMLResponse(templates.get_template("refused.html").render(
+            request=request, article=article, mood=mood_row, moods=moods, blocked=blocked,
+            hue=source_hue(article["source_code"]),
+            published_human=human_time(article["published_at"]),
+            git_sha=settings.git_sha,
+            url_for=lambda name, **kw: request.url_for(name, **kw)))
+
     rewrite = repository.published_rewrite(article_id, mood)
     if not rewrite:
         return HTMLResponse(

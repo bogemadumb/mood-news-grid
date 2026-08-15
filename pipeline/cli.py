@@ -147,6 +147,10 @@ def cycle_cmd(limit: int = typer.Option(40)):
     stats = ingest(limit_per_source=limit)
     typer.echo("")
     curate()
+    typer.echo("")
+    from pipeline.sensitivity import mark_articles
+
+    mark_articles()
     typer.echo(f"\nсобрано {stats['saved']}, отсеяно {stats['rejected']}, повторов {stats['duplicates']}")
 
 
@@ -193,6 +197,14 @@ def clean_promo_cmd():
             conn.execute("UPDATE articles SET moods_ready=0, status='new'")
             typer.echo(f"снято прежних пересказов: {dropped} (сверялись со старым текстом)")
     typer.echo(f"вычищено хвостов: {changed} из {len(rows)}")
+
+
+@app.command("mark-sensitivity")
+def mark_sensitivity_cmd():
+    """Разметить материалы стоп-краном: где речь о гибели людей."""
+    from pipeline.sensitivity import mark_articles
+
+    mark_articles()
 
 
 @app.command("check-robots")

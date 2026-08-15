@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ru" data-mood="{{ mood.code }}" style="--h: {{ mood.accent_hue }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>{{ article.title }} — режим недоступен</title>
+<link rel="stylesheet" href="{{ url_for('static', path='/tokens.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='/moods.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='/compare.css') }}">
+</head>
+<body>
+
+<div class="wrap">
+
+  <div class="topbar">
+    <a class="back" href="{{ url_for('index') }}">← лента</a>
+    <span class="spacer"></span>
+    <span class="dot" style="background: hsl({{ hue }} 45% 45%)"></span>
+    <span>{{ article.source_title }}</span>
+    <span>{{ published_human }}</span>
+  </div>
+
+  <nav class="moodbar" role="radiogroup" aria-label="Эмоциональный режим">
+    {% for m in moods %}
+    <a class="mood-btn {% if m.code == mood.code %}active{% endif %} {% if m.code in blocked %}locked{% endif %}"
+       style="--h: {{ m.accent_hue }};
+              --btn-weight: {{ m.btn_weight }};
+              --btn-opsz: {{ m.btn_opsz }};
+              --btn-track: {{ m.btn_track }};
+              --btn-style: {{ m.btn_style }}"
+       role="radio" aria-checked="{{ 'true' if m.code == mood.code else 'false' }}"
+       href="?mood={{ m.code }}">
+      <span class="name">{{ m.title_ru }}</span>
+      <span class="hint">{% if m.code in blocked %}недоступно{% else %}{{ m.subtitle }}{% endif %}</span>
+    </a>
+    {% endfor %}
+  </nav>
+
+  <section class="refusal">
+    <h2>Здесь погибли люди. Я не буду делать из этого смешно.</h2>
+    <p>
+      Режимы «радостно», «грустно» и «иронично» на таких материалах отключены.
+      Доступен нейтральный пересказ — он сохраняет факты и не добавляет интонации.
+    </p>
+    <p class="rule">
+      <b>Правило, по которому сработал стоп-кран:</b> {{ article.sensitivity_reason or 'материал отмечен как связанный с гибелью людей' }}.
+      Проверяется не просто наличие слова: рядом с ним должно стоять одушевлённое
+      существительное или слово о людях. Поэтому «убийственный ценник» и «гибель урожая»
+      блокировку не вызывают.
+    </p>
+    <p class="rule">
+      Это не перестраховка задним числом. На живом прогоне модель сама трижды отказалась
+      пересказывать бодро новость о гибели человека и написала, что конвейеру нужен такой
+      фильтр. Фильтр появился.
+    </p>
+    <a class="cta" href="?mood=neutral">читать нейтрально →</a>
+  </section>
+
+  <div class="compare" style="grid-template-columns: 1fr">
+    <section class="col">
+      <div class="col-head">
+        <span class="who">оригинал</span>
+        <span>{{ article.source_title }}</span>
+      </div>
+      <h2 class="art-title">{{ article.title }}</h2>
+      <div class="art-body">{{ article.rewrite_source_text }}</div>
+      <a class="src-link" href="{{ article.url }}" target="_blank" rel="nofollow noopener">
+        читать в источнике →
+      </a>
+    </section>
+  </div>
+
+</div>
+
+<footer class="site-foot wrap">
+  <span>сборка {{ git_sha }}</span>
+  <span><a href="{{ url_for('index') }}">вся лента</a></span>
+</footer>
+
+</body>
+</html>

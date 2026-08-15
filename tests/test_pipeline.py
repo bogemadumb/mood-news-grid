@@ -281,3 +281,39 @@ def test_platform_drop_is_soft_but_source_swap_is_hard():
     orig2 = "США и КНР не договорились по тарифам, сообщает Reuters."
     swapped = "США и КНР не договорились по тарифам, сообщает ТАСС."
     assert verdict(check(orig2, swapped, pub)) == "FAIL"
+
+
+@pytest.mark.parametrize(
+    "title,body,expected",
+    [
+        ("Скончалась журналист Аида Леванова", "Журналист умерла на 78-м году жизни.", "death"),
+        ("Велогонщик погиб в 19 лет",
+         "19-летний велогонщик Финли Тарлинг погиб, столкнувшись с машиной.", "death"),
+        ("В результате теракта пострадали люди", "Взрыв произошёл утром.", "death"),
+        # Ловушки: слова о смерти как метафора — блокировать нельзя
+        ("Убийственный ценник на смартфон", "Флагман стоит 200 тысяч рублей.", "none"),
+        ("Гибель урожая из-за засухи", "Аграрии сообщили о потере трети пшеницы.", "none"),
+        ("Мёртвый сезон на рынке", "Продажи квартир упали на 12%.", "none"),
+        ("Банк России снизил ставку", "ЦБ снизил ставку до 15% годовых.", "none"),
+    ],
+)
+def test_stop_crane(title, body, expected):
+    """Стоп-кран: ирония над гибелью людей отключается, метафоры не блокируются.
+
+    Появился не из осторожности: на живом прогоне модель трижды отказалась пересказывать
+    бодро новость о гибели велогонщика и написала, что конвейеру нужен такой фильтр.
+    """
+    from pipeline.sensitivity import classify
+
+    level, _ = classify(title, body)
+    assert level == expected
+
+
+def test_mood_allowed_rules():
+    from pipeline.sensitivity import mood_allowed
+
+    neutral = {"allowed_max_sensitivity": "any"}
+    ironic = {"allowed_max_sensitivity": "none"}
+    assert mood_allowed(neutral, "death")
+    assert not mood_allowed(ironic, "death")
+    assert mood_allowed(ironic, "none")

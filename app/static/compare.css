@@ -114,8 +114,8 @@
   position: relative;
   padding: 30px 0 10px;
 }
-/* Разделительная линейка между полосами, как в газете */
-.compare::before {
+/* Разделительная линейка между полосами, как в газете. Только когда полос две. */
+.compare.two::before {
   content: '';
   position: absolute;
   top: 30px; bottom: 10px; left: 50%;
@@ -269,3 +269,44 @@ details.block > summary:hover { color: var(--ink); }
   .mood-btn:nth-child(-n+2) { border-bottom: 1px solid var(--rule-soft); }
   .verify-nums { margin-left: 0; }
 }
+
+/* --- Отказ стоп-крана --- */
+
+.refusal {
+  border-left: 3px solid var(--fail);
+  padding: 22px 0 22px 22px;
+  margin: 30px 0 10px;
+  max-width: 46rem;
+}
+.refusal h2 {
+  margin: 0 0 12px;
+  font-size: clamp(1.25rem, 3vw, 1.7rem);
+  font-weight: 600;
+  line-height: 1.24;
+  letter-spacing: -.018em;
+}
+.refusal p { margin: 0 0 12px; color: var(--ink-soft); font-size: .97rem; }
+.refusal .rule {
+  font-size: .87rem;
+  line-height: 1.65;
+  color: var(--ink-mute);
+  padding-left: 14px;
+  border-left: 1px solid var(--rule);
+}
+.refusal .rule b { color: var(--ink-soft); }
+.refusal .cta {
+  display: inline-block;
+  margin-top: 10px;
+  font-family: var(--mono);
+  font-size: .68rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+  padding-bottom: 2px;
+}
+
+.mood-btn.locked .name { color: var(--ink-mute); text-decoration: line-through;
+                         text-decoration-thickness: 1px; }
+.mood-btn.locked .hint { color: var(--fail); }
