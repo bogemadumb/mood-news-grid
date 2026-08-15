@@ -182,3 +182,24 @@ def test_find_spans_extends_truncated_quote_to_word_boundary():
     truncated = "В течение дня ударными беспилотными лета"
     span = find_spans(text, [("q1", "quote", truncated)])[0]
     assert text[span["start"]:span["end"]].endswith("летательными")
+
+
+@pytest.mark.parametrize(
+    "a,b,expected",
+    [
+        ("Санчеса", "Санчес", True),          # родительный падеж против именительного
+        ("Педро Санчес", "Санчес", True),     # сокращение до фамилии
+        ("Эльвиры Набиуллиной", "Эльвира Набиуллина", True),
+        ("Санчес", "Набиуллина", False),      # подмена спикера — настоящее нарушение
+        ("Санчес", "", False),                # атрибуция потеряна
+    ],
+)
+def test_same_speaker_survives_declension(a, b, expected):
+    """natasha отдаёт спикера в падеже предложения.
+
+    Сравнение сырых строк давало «speaker_changed» на идентичной цитате и блокировало
+    публикацию: в оригинале «по словам Санчеса», в пересказе «Санчес заявил».
+    """
+    from pipeline.facts.check import same_speaker
+
+    assert same_speaker(a, b) is expected

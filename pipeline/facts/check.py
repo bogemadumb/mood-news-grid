@@ -1,4 +1,7 @@
 import datetime, re
+import pymorphy3
+
+MORPH_PARSER = pymorphy3.MorphAnalyzer()
 from decimal import Decimal
 from .fc import (parse_doc, extract_numbers, extract_dates, extract_entities, extract_quotes,
                 lemma_seq, lemma_set, aliases_of, alias_key, contains_seq,
@@ -106,10 +109,35 @@ def match_entity(f, target):
         return 'fuzzy', best[1]['surface']
     return 'missing', None
 
+def _speaker_lemmas(name: str) -> frozenset:
+    """Имя спикера в леммах.
+
+    natasha возвращает атрибуцию в том падеже, в каком она стоит в предложении:
+    «по словам Санчеса» -> «Санчеса», «Санчес заявил» -> «Санчес». Это один человек,
+    и сравнивать такие строки напрямую нельзя.
+    """
+    if not name:
+        return frozenset()
+    return frozenset(
+        MORPH_PARSER.parse(w)[0].normal_form
+        for w in re.findall(r"[А-Яа-яЁёA-Za-z-]{2,}", name)
+    )
+
+
+def same_speaker(a: str, b: str) -> bool:
+    """Один ли это человек. Допускается сокращение до фамилии: «Педро Санчес» и «Санчес»."""
+    la, lb = _speaker_lemmas(a), _speaker_lemmas(b)
+    if not la and not lb:
+        return True
+    if not la or not lb:
+        return False
+    return bool(la & lb)
+
+
 def match_quote(f, target):
     for c in target['quotes']:
         if c['norm'] == f['norm']:
-            st = 'ok' if (f['speaker'] or '') == (c['speaker'] or '') else 'speaker_changed'
+            st = 'ok' if same_speaker(f.get('speaker'), c.get('speaker')) else 'speaker_changed'
             return st, c['surface']
     for c in target['quotes']:
         if fuzz.ratio(f['norm'], c['norm']) >= 92:
