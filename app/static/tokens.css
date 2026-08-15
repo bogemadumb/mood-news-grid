@@ -153,3 +153,5 @@ a { color: var(--accent); }
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+.muted-link { color: var(--muted) !important; font-weight: 400 !important; }

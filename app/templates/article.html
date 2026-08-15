@@ -57,8 +57,11 @@
       <button class="linklike" onclick="document.getElementById('passport').toggleAttribute('open')">
         как это сделано
       </button>
+      <button class="linklike" id="regen">перегенерировать сейчас</button>
     </div>
   </section>
+
+  <div id="regen-out" class="regen-out" hidden></div>
 
   <details id="passport" class="passport">
     <summary>Паспорт генерации</summary>
@@ -134,6 +137,30 @@
 </footer>
 
 <script>
+// Перегенерация: ответ на вопрос «а вы не написали эти тексты заранее руками?».
+document.getElementById('regen')?.addEventListener('click', async e => {
+  const btn = e.target, box = document.getElementById('regen-out');
+  btn.disabled = true; btn.textContent = 'генерирую…';
+  try {
+    const r = await fetch(window.location.pathname + '/regenerate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: 'mood={{ mood.code }}'
+    });
+    const d = await r.json();
+    box.hidden = false;
+    box.innerHTML = d.ok
+      ? '<b>Готово.</b> Вердикт ' + d.verdict + ', непохожесть ' +
+        Math.round(d.style_distance * 100) + '%, новый вызов модели №' + d.llm_call_id +
+        '.<div class="regen-text"></div>'
+      : '<b>Не получилось.</b> ' + (d.reason || (d.verdict + ': ' + (d.violations || []).join('; ')));
+    if (d.ok) box.querySelector('.regen-text').textContent = d.body;
+  } catch (err) {
+    box.hidden = false; box.textContent = 'запрос не прошёл: ' + err;
+  }
+  btn.disabled = false; btn.textContent = 'перегенерировать сейчас';
+});
+
 // Наведение на факт слева подсвечивает его двойника справа.
 document.addEventListener('mouseover', e => {
   const m = e.target.closest('.fact'); if (!m) return;

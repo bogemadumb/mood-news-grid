@@ -117,3 +117,13 @@
   .compare { grid-template-columns: 1fr; }
   .col.rewritten { border-left: 1px solid var(--line); border-top: 3px solid hsl(var(--mood-hue, 210) 55% 45%); }
 }
+
+.regen-out {
+  border: 1px solid var(--line); border-left: 3px solid var(--accent);
+  border-radius: 10px; padding: 12px 16px; margin-bottom: 14px;
+  font-size: .88rem; background: var(--surface);
+}
+.regen-text {
+  margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line);
+  white-space: pre-wrap; line-height: 1.6; color: var(--ink-soft);
+}

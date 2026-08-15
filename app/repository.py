@@ -6,14 +6,27 @@
 from app.db import session
 
 
-def showcase_articles(limit: int = 30) -> list[dict]:
+def showcase_articles(limit: int = 30, only_ready: bool = True) -> list[dict]:
+    """Новости для грида.
+
+    По умолчанию отдаются только те, где готовы ВСЕ активные тона. Иначе проверяющий
+    переключит режим и часть карточек исчезнет, а по клику получит плашку «не готово» —
+    и это будет выглядеть как поломка, а не как честная очередь.
+    """
+    ready_clause = ""
+    if only_ready:
+        ready_clause = """AND a.id IN (
+              SELECT article_id FROM rewrites WHERE status='published'
+              GROUP BY article_id
+              HAVING COUNT(DISTINCT mood_code) >=
+                     (SELECT COUNT(*) FROM moods WHERE is_active=1 AND is_service=0))"""
     with session() as conn:
         rows = conn.execute(
-            """SELECT a.id, a.title, a.url, a.author, a.published_at, a.source_len,
+            f"""SELECT a.id, a.title, a.url, a.author, a.published_at, a.source_len,
                       a.rewrite_source_text, a.extraction_method, a.url_http_status,
                       s.code AS source_code, s.title AS source_title, s.homepage_url
                FROM articles a JOIN sources s ON s.id = a.source_id
-               WHERE a.in_showcase = 1
+               WHERE a.in_showcase = 1 {ready_clause}
                ORDER BY a.published_at DESC
                LIMIT ?""",
             (limit,),
@@ -39,6 +52,8 @@ def counters() -> dict:
             """SELECT
                  (SELECT COUNT(*) FROM articles) AS articles_total,
                  (SELECT COUNT(*) FROM articles WHERE in_showcase=1) AS showcase,
+                 (SELECT COUNT(*) FROM articles WHERE moods_ready >=
+                    (SELECT COUNT(*) FROM moods WHERE is_active=1 AND is_service=0)) AS ready,
                  (SELECT COUNT(DISTINCT source_id) FROM articles WHERE in_showcase=1) AS sources_used,
                  (SELECT MAX(fetched_at) FROM articles) AS last_fetch,
                  (SELECT COUNT(*) FROM rewrites WHERE status='published') AS published_rewrites"""

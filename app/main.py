@@ -5,15 +5,16 @@
 а страница не зависит от того, жив ли сейчас провайдер.
 """
 import hashlib
+import os
 import re
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app import highlight, repository
+from app import db, highlight, repository
 from app.config import BASE_DIR, settings
 
 app = FastAPI(
@@ -89,11 +90,12 @@ def index(request: Request):
 def healthz():
     """Живость для watchdog: пустая витрина — это отказ, а не «всё хорошо»."""
     counts = repository.counters()
-    ok = counts["showcase"] >= settings.min_ready_articles
+    ok = counts["ready"] >= settings.min_ready_articles
     payload = {
         "ok": ok,
         "articles_total": counts["articles_total"],
         "showcase": counts["showcase"],
+        "ready": counts["ready"],
         "sources_used": counts["sources_used"],
         "published_rewrites": counts["published_rewrites"],
         "last_fetch": counts["last_fetch"],
@@ -104,7 +106,7 @@ def healthz():
 
 @app.get("/version")
 def version():
-    return {"version": "0.2.0", "stage": "2 - сбор и витрина", "git_sha": settings.git_sha}
+    return {"version": "0.3.0", "stage": "3 - тона и проверка фактов", "git_sha": settings.git_sha}
 
 
 @app.get("/api/articles")
@@ -188,3 +190,49 @@ def article_page(request: Request, article_id: int, mood: str = "neutral"):
             "git_sha": settings.git_sha,
         },
     )
+
+
+@app.post("/n/{article_id}/regenerate")
+def regenerate(article_id: int, mood: str = Form("neutral")):
+    """Сгенерировать вариант заново прямо сейчас.
+
+    Существует ради одного вопроса, который проверяющий задаст первым: «а вы не написали
+    эти тексты руками заранее?». Здесь он нажимает кнопку и получает вариант, которого
+    минуту назад не было, вместе с новым номером вызова модели и результатом проверки.
+
+    Ограничение: живая генерация включается переменной ALLOW_LIVE_REGENERATE.
+    На публичном демо она выключена по умолчанию — за ней стоит личная подписка автора,
+    и раздавать её посетителям нельзя.
+    """
+    if os.getenv("ALLOW_LIVE_REGENERATE", "0") != "1":
+        return JSONResponse(
+            {"ok": False,
+             "reason": "живая генерация выключена на этом стенде: за ней стоит личная "
+                       "подписка автора. Как включить — написано в README."},
+            status_code=503,
+        )
+
+    article = repository.article_by_id(article_id)
+    mood_row = repository.mood_by_code(mood)
+    if not article or not mood_row:
+        return JSONResponse({"ok": False, "reason": "нет такой новости или режима"}, status_code=404)
+
+    from pipeline.rewrite import run_attempt, save_attempt
+
+    attempt = run_attempt(mood_row, article, 1, None, None)
+    with db.session() as conn:
+        rewrite_id = save_attempt(
+            conn, article, mood_row, 1, attempt,
+            os.getenv("LLM_PROVIDER", "echo"), os.getenv("CLAUDE_MODEL", "sonnet"),
+            "published" if attempt.verdict == "PASS" else "failed",
+        )
+    return JSONResponse({
+        "ok": attempt.verdict == "PASS",
+        "verdict": attempt.verdict,
+        "rewrite_id": rewrite_id,
+        "llm_call_id": attempt.call_id,
+        "style_distance": round(attempt.style_distance, 3),
+        "title": attempt.title,
+        "body": attempt.body,
+        "violations": attempt.violations,
+    })
