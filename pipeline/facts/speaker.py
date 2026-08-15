@@ -1,5 +1,5 @@
-import re
-from .fc import parse_doc, SPEECH, QUOTE_RE, norm_quote
+from .fc import QUOTE_RE, SPEECH, norm_quote, parse_doc
+
 
 def attribute_quotes(text):
     doc = parse_doc(text)

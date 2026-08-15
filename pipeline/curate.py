@@ -7,7 +7,7 @@
 и это выглядит как провал проверки, а не как экономия места. В это окно помещается вся
 заметка целиком. Материалы длиннее остаются в базе, но карточками не становятся.
 """
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.db import session
 
@@ -57,8 +57,8 @@ def curate(limit: int = SHOWCASE_LIMIT, verbose: bool = True) -> dict:
         conn.execute(
             "INSERT INTO pipeline_runs (run_id, kind, started_at, finished_at, ok, items_out)"
             " VALUES (?,?,?,?,1,?)",
-            ("curate", "curate", datetime.now(timezone.utc).isoformat(),
-             datetime.now(timezone.utc).isoformat(), len(picked)),
+            ("curate", "curate", datetime.now(UTC).isoformat(),
+             datetime.now(UTC).isoformat(), len(picked)),
         )
 
         if verbose:

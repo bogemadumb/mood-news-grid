@@ -10,7 +10,10 @@ import json
 
 import pytest
 
-from app.db import session
+from app.db import migrate, session
+
+# На чистом клоне базы ещё нет: заводим пустую, чтобы тесты аккуратно пропустились.
+migrate()
 
 
 def _rows(query, params=()):

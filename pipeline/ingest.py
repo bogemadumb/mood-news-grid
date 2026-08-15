@@ -18,7 +18,7 @@ import json
 import re
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import feedparser
@@ -204,7 +204,7 @@ def ingest(limit_per_source: int = 40, verbose: bool = True) -> dict:
     cfg = load_sources()
     base_headers = {"User-Agent": cfg["user_agent"]}
     run_id = uuid.uuid4().hex[:12]
-    started = datetime.now(timezone.utc).isoformat()
+    started = datetime.now(UTC).isoformat()
     stats = {"seen": 0, "saved": 0, "rejected": 0, "duplicates": 0, "errors": 0}
     rejects: list[tuple[str, str]] = []
 
@@ -236,7 +236,7 @@ def ingest(limit_per_source: int = 40, verbose: bool = True) -> dict:
                     "INSERT INTO incidents (run_id, kind, stage, source_or_provider, message, created_at)"
                     " VALUES (?,?,?,?,?,?)",
                     (run_id, "feed_error", "ingest", src["code"], str(exc),
-                     datetime.now(timezone.utc).isoformat()),
+                     datetime.now(UTC).isoformat()),
                 )
                 if verbose:
                     print(f"{src['code']:<14} ошибка: {exc}")
@@ -250,7 +250,7 @@ def ingest(limit_per_source: int = 40, verbose: bool = True) -> dict:
             conn.execute(
                 "UPDATE sources SET etag=?, last_modified=?, last_fetch_at=? WHERE code=?",
                 (resp.headers.get("ETag"), resp.headers.get("Last-Modified"),
-                 datetime.now(timezone.utc).isoformat(), src["code"]),
+                 datetime.now(UTC).isoformat(), src["code"]),
             )
 
             parsed = feedparser.parse(resp.content)
@@ -297,7 +297,7 @@ def ingest(limit_per_source: int = 40, verbose: bool = True) -> dict:
                     (row["id"], entry.get("id"), entry.link, url_canon, title, body, body,
                      text_sha256(body), len(body), author, image,
                      to_iso_utc(entry.get("published_parsed")),
-                     datetime.now(timezone.utc).isoformat(), chash, word_count(body),
+                     datetime.now(UTC).isoformat(), chash, word_count(body),
                      method, long_sentence_ratio(body),
                      json.dumps({k: str(v)[:2000] for k, v in dict(entry).items()
                                  if k in ("id", "title", "link", "published", "author")},
@@ -312,7 +312,7 @@ def ingest(limit_per_source: int = 40, verbose: bool = True) -> dict:
                 """INSERT INTO source_health (source_code, checked_at, ok, http_status, latency_ms,
                                               items, full_text_ratio, quality_gate_pass_ratio)
                    VALUES (?,?,?,?,?,?,?,?)""",
-                (src["code"], datetime.now(timezone.utc).isoformat(), 1, resp.status_code,
+                (src["code"], datetime.now(UTC).isoformat(), 1, resp.status_code,
                  int((time.time() - t0) * 1000), len(parsed.entries),
                  passed_here / total_seen, passed_here / total_seen),
             )
@@ -324,7 +324,7 @@ def ingest(limit_per_source: int = 40, verbose: bool = True) -> dict:
         conn.execute(
             """UPDATE pipeline_runs SET finished_at=?, ok=1, items_in=?, items_out=?, errors=?
                WHERE run_id=?""",
-            (datetime.now(timezone.utc).isoformat(), stats["seen"], stats["saved"],
+            (datetime.now(UTC).isoformat(), stats["seen"], stats["saved"],
              stats["errors"], run_id),
         )
 

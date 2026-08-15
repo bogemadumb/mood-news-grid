@@ -6,7 +6,7 @@
 import hashlib
 import html
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from urllib.parse import parse_qsl, urlsplit, urlunsplit
 
 # Метки, которые не меняют содержимое страницы, но ломают сравнение ссылок.
@@ -72,7 +72,7 @@ def to_iso_utc(struct_time) -> str | None:
     if not struct_time:
         return None
     try:
-        dt = datetime(*struct_time[:6], tzinfo=timezone.utc)
+        dt = datetime(*struct_time[:6], tzinfo=UTC)
         return dt.isoformat()
     except (TypeError, ValueError):
         return None

@@ -1,10 +1,20 @@
 """Прототип детектора искажения фактов (RU). Проверка идей, не финальный код."""
-import re, unicodedata, datetime
+import re
+import unicodedata
 from decimal import Decimal
-from natasha import (Segmenter, MorphVocab, NewsEmbedding, NewsMorphTagger,
-                     NewsSyntaxParser, NewsNERTagger, Doc, DatesExtractor, MoneyExtractor)
+
 import dateparser
-from rapidfuzz import fuzz
+from natasha import (
+    DatesExtractor,
+    Doc,
+    MoneyExtractor,
+    MorphVocab,
+    NewsEmbedding,
+    NewsMorphTagger,
+    NewsNERTagger,
+    NewsSyntaxParser,
+    Segmenter,
+)
 
 SEG = Segmenter(); MV = MorphVocab(); EMB = NewsEmbedding()
 MORPH = NewsMorphTagger(EMB); SYNTAX = NewsSyntaxParser(EMB); NER = NewsNERTagger(EMB)
@@ -137,8 +147,9 @@ def extract_quotes(doc, text):
                 if not has_speech and not cands:
                     speaker = None
                 break
-        res.append(dict(kind='quote', surface=q, norm=norm_quote(q),
-                        speaker=speaker, start=m.start(), stop=m.end()))
+        res.append(dict(kind='quote', surface=q, norm=norm_quote(q), is_speech=is_speech,
+                        speaker=speaker if is_speech else None,
+                        start=m.start(), stop=m.end()))
     return res
 
 NEG = {'не', 'ни', 'нет', 'без', 'никогда', 'никто', 'ничего', 'нельзя', 'отказаться', 'отрицать'}

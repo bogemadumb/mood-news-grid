@@ -9,8 +9,12 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app.db import session
+from app.db import migrate, session
 from app.main import app
+
+# На чистом клоне базы ещё нет. Накатываем схему до первого запроса, иначе pytest
+# падает на этапе сбора тестов — и проверяющий видит ошибку вместо аккуратного пропуска.
+migrate()
 
 client = TestClient(app)
 
@@ -202,7 +206,6 @@ def test_tz_prompt_lives_in_database_and_is_shown():
 def test_tz_no_external_cdn_anywhere():
     """Модель угроз: ни одного внешнего адреса в разметке публичных страниц."""
     import re
-    from pathlib import Path
 
     from app.config import BASE_DIR
 

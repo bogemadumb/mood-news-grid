@@ -20,7 +20,7 @@ import subprocess
 import time
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 
@@ -188,7 +188,7 @@ def complete(prompt: str, *, purpose: str, model: str = "", temperature: float =
             (rhash, purpose, prov.name, model, prompt[:2000],
              hashlib.sha256(prompt.encode()).hexdigest(), result.text,
              result.tokens_in, result.tokens_out, result.latency_ms,
-             result.http_status, result.error, datetime.now(timezone.utc).isoformat()),
+             result.http_status, result.error, datetime.now(UTC).isoformat()),
         )
         result.call_id = cursor.lastrowid or conn.execute(
             "SELECT id FROM llm_calls WHERE request_hash=?", (rhash,)).fetchone()["id"]

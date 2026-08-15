@@ -1,4 +1,5 @@
 import datetime
+
 from pipeline.facts.check import check, verdict
 
 PUB = datetime.datetime(2026, 8, 15)

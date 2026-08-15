@@ -355,3 +355,24 @@ def test_ambiguous_verb_is_not_a_negation_flip():
     orig = ("Компания смогла запустить завод в срок. Вторую очередь запустить не смогла.")
     retold = ("Вторую очередь компания запустить не смогла, хотя первую смогла запустить в срок.")
     assert not check(orig, retold, pub)["neg_flips"]
+
+
+def test_quote_carries_speech_flag():
+    """Прямая речь и закавыченное название различаются на уровне разметки.
+
+    Ловушка, которую нашёл линтер: флаг вычислялся, но не попадал в результат,
+    из-за чего сверка говорящего молча отключалась целиком. Тест на неё падал бы
+    по другой причине — через подмену персоны, — поэтому проверяем разметку прямо.
+    """
+    from pipeline.facts.fc import extract_quotes, parse_doc
+
+    text = ('Об этом сообщает «Украинская правда». '
+            '«Инфляция замедляется быстрее, чем мы ожидали», — заявила Эльвира Набиуллина.')
+    quotes = {q["surface"][:20]: q for q in extract_quotes(parse_doc(text), text)}
+
+    name = quotes["Украинская правда"]
+    assert name["is_speech"] is False and name["speaker"] is None
+
+    speech = quotes["Инфляция замедляется"]
+    assert speech["is_speech"] is True
+    assert "Набиуллина" in (speech["speaker"] or "")

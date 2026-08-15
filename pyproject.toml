@@ -44,10 +44,22 @@ dev = [
 [tool.ruff]
 line-length = 110
 target-version = "py312"
+# Архив отрицательных экспериментов: лежит как свидетельство того, что пробовали
+# и почему отказались. Это не поддерживаемый код, стилю его не подчиняем.
+exclude = ["docs/experiments"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# Прототип детектора искажений перенесён как есть: он написан плотным стилем,
+# переформатирование ради линтера сломало бы соответствие исходным замерам.
+"pipeline/facts/fc.py" = ["E701", "E702", "E401", "E741", "F841"]
+"pipeline/facts/check.py" = ["E701", "E702", "E401", "E741", "E402"]
+"pipeline/facts/speaker.py" = ["E701", "E702", "E401", "F841"]
+# Набор кейсов детектора перенесён из прототипа вместе с его компактным стилем.
+"tests/test_fact_checker.py" = ["E701", "E702"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

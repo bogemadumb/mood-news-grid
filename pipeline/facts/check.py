@@ -1,12 +1,25 @@
-import datetime, re
+import re
+
 import pymorphy3
 
 MORPH_PARSER = pymorphy3.MorphAnalyzer()
 from decimal import Decimal
-from .fc import (parse_doc, extract_numbers, extract_dates, extract_entities, extract_quotes,
-                lemma_seq, lemma_set, aliases_of, alias_key, contains_seq,
-                NEG, HEDGE, BOOST, norm_quote)
+
 from rapidfuzz import fuzz
+
+from .fc import (
+    BOOST,
+    HEDGE,
+    aliases_of,
+    contains_seq,
+    extract_dates,
+    extract_entities,
+    extract_numbers,
+    extract_quotes,
+    lemma_seq,
+    lemma_set,
+    parse_doc,
+)
 
 NEG_PARTICLES = {'не', 'ни'}
 

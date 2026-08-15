@@ -16,7 +16,6 @@
 """
 import datetime
 import json
-import re
 from dataclasses import dataclass
 
 from rapidfuzz import fuzz
@@ -64,12 +63,12 @@ def describe_violations(report: dict, style_distance: float, length_ratio: float
                         cyr: float, style_min: float = STYLE_DISTANCE_MIN) -> list[str]:
     """Человеческий список нарушений — он же идёт в ремонтный промпт."""
     out = []
-    for kind, surface, status, got in report["hard"]:
+    for _, surface, status, got in report["hard"]:
         if status == "missing":
             out.append(f"пропало: «{surface}»")
         else:
             out.append(f"изменено: «{surface}» -> «{got or '?'}»")
-    for kind, surface in report["halluc"]:
+    for _, surface in report["halluc"]:
         out.append(f"выдумано, в оригинале этого нет: «{surface}»")
     for kind, lemma in report.get("neg_flips", []):
         if kind == "negation_dropped":
@@ -196,7 +195,7 @@ def save_attempt(conn, article: dict, mood: dict, attempt_no: int, att: Attempt,
          report.get("fpi"), att.style_distance, att.length_ratio, att.cyrillic_ratio,
          len(rows), len(rows) - len(hard) - len(soft), len(hard), len(soft),
          len(report.get("halluc", [])), att.latency_ms,
-         datetime.datetime.now(datetime.timezone.utc).isoformat()),
+         datetime.datetime.now(datetime.UTC).isoformat()),
     )
     rewrite_id = cursor.lastrowid
     for kind, surface, verdict_status, got in rows:

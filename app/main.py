@@ -7,7 +7,7 @@
 import hashlib
 import os
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -24,6 +24,10 @@ app = FastAPI(
     docs_url=None,
     redoc_url=None,
 )
+
+# Схема накатывается при старте: на чистой машине приложение должно подниматься
+# и показывать пустую ленту, а не падать с «no such table».
+db.migrate()
 
 app.mount("/static", StaticFiles(directory=BASE_DIR / "app" / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "app" / "templates")
@@ -43,7 +47,7 @@ def human_time(iso: str | None) -> str:
         dt = datetime.fromisoformat(iso)
     except ValueError:
         return "без даты"
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     delta = now - dt
     if delta.total_seconds() < 3600:
         return f"{max(1, int(delta.total_seconds() // 60))} мин назад"

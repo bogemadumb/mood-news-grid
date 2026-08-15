@@ -40,8 +40,7 @@ LEVEL_DEATH = "death"
 
 @functools.lru_cache(maxsize=1)
 def _nlp():
-    from natasha import (Doc, MorphVocab, NewsEmbedding, NewsMorphTagger,
-                         NewsSyntaxParser, Segmenter)
+    from natasha import Doc, MorphVocab, NewsEmbedding, NewsMorphTagger, NewsSyntaxParser, Segmenter
     emb = NewsEmbedding()
     return {"seg": Segmenter(), "morph": NewsMorphTagger(emb),
             "syntax": NewsSyntaxParser(emb), "vocab": MorphVocab(), "Doc": Doc}
