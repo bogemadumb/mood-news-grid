@@ -167,6 +167,34 @@ def rewrite_cmd(
     )
 
 
+@app.command("clean-promo")
+def clean_promo_cmd():
+    """Разово вычистить рекламные хвосты из уже собранных новостей."""
+    from app.db import session
+    from pipeline.normalize import strip_promo_tail, text_sha256
+
+    changed = 0
+    with session() as conn:
+        rows = conn.execute(
+            "SELECT id, rewrite_source_text FROM articles WHERE rewrite_source_text IS NOT NULL"
+        ).fetchall()
+        for row in rows:
+            cleaned = strip_promo_tail(row["rewrite_source_text"])
+            if cleaned != row["rewrite_source_text"]:
+                conn.execute(
+                    """UPDATE articles SET rewrite_source_text=?, source_text_sha256=?,
+                       source_len=? WHERE id=?""",
+                    (cleaned, text_sha256(cleaned), len(cleaned), row["id"]),
+                )
+                changed += 1
+        if changed:
+            # Тексты изменились, значит прежние пересказы сверялись с другим оригиналом.
+            dropped = conn.execute("DELETE FROM rewrites").rowcount
+            conn.execute("UPDATE articles SET moods_ready=0, status='new'")
+            typer.echo(f"снято прежних пересказов: {dropped} (сверялись со старым текстом)")
+    typer.echo(f"вычищено хвостов: {changed} из {len(rows)}")
+
+
 @app.command("check-robots")
 def check_robots():
     """Выкачать robots.txt каждого источника и показать, что там про нас."""
