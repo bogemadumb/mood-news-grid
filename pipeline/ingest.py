@@ -35,6 +35,7 @@ from pipeline.normalize import (
     long_sentence_ratio,
     looks_like_footer,
     strip_html,
+    strip_promo_tail,
     text_sha256,
     to_iso_utc,
     word_count,
@@ -265,6 +266,7 @@ def ingest(limit_per_source: int = 40, verbose: bool = True) -> dict:
 
                 title = strip_html(entry.get("title", "")).strip()
                 body, method, html_text = fetch_body(client, entry, src, headers)
+                body = strip_promo_tail(body)
                 ok, reason = quality_gate(title, body)
                 if not ok:
                     stats["rejected"] += 1
