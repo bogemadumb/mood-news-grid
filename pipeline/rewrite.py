@@ -60,7 +60,7 @@ def anchors_from_report(report: dict) -> list[str]:
 
 
 def describe_violations(report: dict, style_distance: float, length_ratio: float,
-                        cyr: float) -> list[str]:
+                        cyr: float, style_min: float = STYLE_DISTANCE_MIN) -> list[str]:
     """Человеческий список нарушений — он же идёт в ремонтный промпт."""
     out = []
     for kind, surface, status, got in report["hard"]:
@@ -79,7 +79,7 @@ def describe_violations(report: dict, style_distance: float, length_ratio: float
         out.append(f"пропала осторожность: было «{lemma}», стало утверждение как факт")
     for lemma in report["boost_added"]:
         out.append(f"добавлено усиление, которого не было: «{lemma}»")
-    if style_distance < STYLE_DISTANCE_MIN:
+    if style_distance < style_min:
         out.append("текст почти дословно повторяет оригинал — нужен настоящий пересказ")
     if not LENGTH_RATIO_MIN <= length_ratio <= LENGTH_RATIO_MAX:
         out.append(f"длина ушла в сторону: {length_ratio:.2f} от оригинала")
@@ -156,12 +156,13 @@ def run_attempt(mood: dict, article: dict, attempt: int,
                        cyr, result.call_id, result.latency_ms, ["ответ не на русском"])
 
     report = check(source_text, new_body, pub_dt)
-    violations_now = describe_violations(report, style_distance, length_ratio, cyr)
+    violations_now = describe_violations(report, style_distance, length_ratio, cyr,
+                                         mood.get("style_distance_min", STYLE_DISTANCE_MIN))
 
     if report["hard"] or report["halluc"] or report["neg_flips"] or report["hedge_lost"] \
             or report["boost_added"]:
         code = "FAIL"
-    elif style_distance < STYLE_DISTANCE_MIN:
+    elif style_distance < mood.get("style_distance_min", STYLE_DISTANCE_MIN):
         code = "COPY"
     else:
         code = "PASS"

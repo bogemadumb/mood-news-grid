@@ -57,3 +57,88 @@ def sources_overview() -> list[dict]:
                GROUP BY s.code ORDER BY articles DESC"""
         ).fetchall()
         return [dict(r) for r in rows]
+
+
+def active_moods() -> list[dict]:
+    with session() as conn:
+        rows = conn.execute(
+            "SELECT * FROM moods WHERE is_active=1 AND is_service=0 ORDER BY sort_order"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def mood_by_code(code: str) -> dict | None:
+    with session() as conn:
+        row = conn.execute("SELECT * FROM moods WHERE code=?", (code,)).fetchone()
+        return dict(row) if row else None
+
+
+def published_rewrite(article_id: int, mood_code: str) -> dict | None:
+    with session() as conn:
+        row = conn.execute(
+            """SELECT * FROM rewrites
+               WHERE article_id=? AND mood_code=? AND status='published'
+               ORDER BY attempt DESC LIMIT 1""",
+            (article_id, mood_code),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def all_attempts(article_id: int, mood_code: str) -> list[dict]:
+    """Все попытки, включая провальные: журнал и есть доказательство работы проверки."""
+    with session() as conn:
+        rows = conn.execute(
+            """SELECT r.attempt, r.verdict, r.style_distance, r.status,
+                      (SELECT GROUP_CONCAT(note, '; ') FROM fact_checks fc
+                        WHERE fc.rewrite_id = r.id AND fc.severity = 2) AS hard_notes,
+                      (SELECT GROUP_CONCAT(surface, '; ') FROM hallucinations h
+                        WHERE h.rewrite_id = r.id) AS invented
+               FROM rewrites r
+               WHERE r.article_id=? AND r.mood_code=?
+               ORDER BY r.attempt""",
+            (article_id, mood_code),
+        ).fetchall()
+        out = []
+        for r in rows:
+            item = dict(r)
+            problems = []
+            if item.pop("hard_notes", None):
+                problems.append("факты: " + r["hard_notes"][:120])
+            if item.pop("invented", None):
+                problems.append("выдумано: " + r["invented"][:80])
+            if r["verdict"] == "COPY":
+                problems.append("почти дословный повтор оригинала")
+            elif r["verdict"] in ("TOO_LONG", "TOO_SHORT"):
+                problems.append("длина вышла за границы")
+            item["problem"] = "; ".join(problems)
+            out.append(item)
+        return out
+
+
+def facts_of(article_id: int) -> list[dict]:
+    with session() as conn:
+        rows = conn.execute(
+            "SELECT id, kind, surface, char_start, char_end FROM facts WHERE article_id=?",
+            (article_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def checks_of(rewrite_id: int) -> list[dict]:
+    with session() as conn:
+        rows = conn.execute(
+            "SELECT verdict, severity, found_surface, note FROM fact_checks WHERE rewrite_id=?",
+            (rewrite_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def ready_article_ids() -> set[int]:
+    """Новости, у которых готовы все активные тона. Только они идут в грид."""
+    with session() as conn:
+        active = conn.execute(
+            "SELECT COUNT(*) n FROM moods WHERE is_active=1 AND is_service=0").fetchone()["n"]
+        rows = conn.execute(
+            """SELECT article_id FROM rewrites WHERE status='published'
+               GROUP BY article_id HAVING COUNT(DISTINCT mood_code) >= ?""", (active,)).fetchall()
+        return {r["article_id"] for r in rows}

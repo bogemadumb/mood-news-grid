@@ -5,6 +5,7 @@
 а страница не зависит от того, жив ли сейчас провайдер.
 """
 import hashlib
+import re
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, Request
@@ -12,7 +13,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app import repository
+from app import highlight, repository
 from app.config import BASE_DIR, settings
 
 app = FastAPI(
@@ -115,3 +116,75 @@ def api_articles():
 @app.get("/api/sources")
 def api_sources():
     return {"sources": repository.sources_overview()}
+
+
+def _slug(text: str) -> str:
+    table = str.maketrans("абвгдеёжзийклмнопрстуфхцчшщъыьэюя",
+                          "abvgdeejziyklmnoprstufhc4ww_y_eua")
+    base = text.lower().translate(table)
+    return re.sub(r"[^a-z0-9]+", "-", base).strip("-")[:60] or "news"
+
+
+@app.get("/n/{article_id}", response_class=HTMLResponse)
+def article_page(request: Request, article_id: int, mood: str = "neutral"):
+    """Экран сравнения: оригинал и переписанный текст рядом, с результатом сверки фактов."""
+    article = repository.article_by_id(article_id)
+    if not article:
+        return HTMLResponse("<h1>404</h1><p>Такой новости нет.</p>", status_code=404)
+
+    moods = repository.active_moods()
+    codes = [m["code"] for m in moods]
+    if mood not in codes:
+        mood = codes[0] if codes else "neutral"
+    mood_row = repository.mood_by_code(mood)
+
+    rewrite = repository.published_rewrite(article_id, mood)
+    if not rewrite:
+        return HTMLResponse(
+            templates.get_template("not_ready.html").render(
+                request=request, article=article, mood=mood_row, moods=moods,
+                git_sha=settings.git_sha),
+            status_code=200,
+        )
+
+    source_text = article["rewrite_source_text"] or ""
+    body_new = rewrite["body_rewritten"] or ""
+
+    # Подсвечиваем только те факты, которые проверка нашла в обоих текстах:
+    # подсветить «пропавший» факт справа физически нечем.
+    kept = [c for c in repository.checks_of(rewrite["id"]) if c["verdict"] != "missing"]
+    surfaces = []
+    for i, c in enumerate(kept):
+        kind, _, surface = (c["note"] or "").partition(": ")
+        if surface:
+            surfaces.append((f"f{i}", kind, surface))
+
+    spans_left = highlight.find_spans(source_text, surfaces)
+    spans_right = highlight.find_spans(body_new, surfaces)
+
+    checks = repository.checks_of(rewrite["id"])
+    total = len(checks)
+    missing = sum(1 for c in checks if c["severity"] == 2)
+
+    return templates.TemplateResponse(
+        request,
+        "article.html",
+        {
+            "article": article,
+            "mood": mood_row,
+            "moods": moods,
+            "rewrite": rewrite,
+            "attempts": repository.all_attempts(article_id, mood),
+            "original_html": highlight.render_spans(source_text, spans_left),
+            "rewritten_html": highlight.render_spans(body_new, spans_right),
+            "check": {
+                "total": total,
+                "kept": total - missing,
+                "passed": rewrite["verdict"] == "PASS",
+                "style_distance": rewrite["style_distance"] or 0,
+            },
+            "hue": source_hue(article["source_code"]),
+            "published_human": human_time(article["published_at"]),
+            "git_sha": settings.git_sha,
+        },
+    )

@@ -3,7 +3,7 @@ import sqlite3
 
 import pytest
 
-from app.db import migrate, session
+from app.db import MIGRATIONS_DIR, migrate, session
 from pipeline.ingest import quality_gate
 from pipeline.normalize import canonical_url, content_hash, long_sentence_ratio, strip_html
 
@@ -19,7 +19,9 @@ def test_migrate_idempotent(db):
     """Повторный накат ничего не ломает — иначе рестарт сервиса убивал бы базу."""
     assert migrate(db) == 0
     with session(db) as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+        # версия равна числу миграций в каталоге, а не константе
+        expected = max(int(f.name.split('_')[0]) for f in MIGRATIONS_DIR.glob('*.sql'))
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == expected
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert {"sources", "articles", "facts", "moods", "rewrites", "fact_checks"} <= tables
 
@@ -31,9 +33,6 @@ def test_rewrite_without_llm_call_is_rejected(db):
         conn.execute(
             """INSERT INTO articles (source_id,url,url_canon,title,fetched_at,content_hash)
                VALUES (1,'u','u','t','now','h')"""
-        )
-        conn.execute(
-            """INSERT INTO moods (code,title_ru,system_prompt) VALUES ('joyful','Радостно','p')"""
         )
         with pytest.raises(sqlite3.IntegrityError):
             conn.execute(
@@ -118,3 +117,68 @@ def test_strip_html_survives_feedparser_shapes(raw, expected):
     и первая версия сбора падала на них с TypeError посреди прогона.
     """
     assert strip_html(raw) == expected
+
+
+# --- Подсветка фактов: единственное место, где собирается HTML ---
+
+def test_render_spans_escapes_everything():
+    """Заголовки приходят из интернета. Публичное демо не должно быть XSS-полигоном."""
+    from app.highlight import render_spans
+
+    text = '<img src=x onerror=alert(1)> Ставка 15% </mark><script>alert(2)</script>'
+    start = text.index("15%")
+    out = str(render_spans(text, [{"start": start, "end": start + 3, "kind": "percent", "id": "1"}]))
+    # Проверяем не наличие подстрок, а то, что не осталось ни одного ЖИВОГО тега,
+    # кроме наших: слово onerror как обычный текст безвредно, опасен работающий атрибут.
+    import re as _re
+
+    tags = _re.findall(r"<[^>]+>", out)
+    assert all(t.startswith("<mark") or t == "</mark>" for t in tags), tags
+    assert out.count("<mark") == 1 and out.count("</mark>") == 1
+    assert "&lt;img" in out and "&lt;script&gt;" in out
+
+
+def test_render_spans_marks_the_right_fragment():
+    from app.highlight import render_spans
+
+    text = "Ставка снижена до 15% годовых"
+    out = str(render_spans(text, [{"start": 18, "end": 21, "kind": "percent", "id": "f1"}]))
+    assert ">15%</mark>" in out
+    assert 'data-fact="f1"' in out
+
+
+def test_find_spans_skips_overlaps():
+    from app.highlight import find_spans
+
+    text = "Банк России снизил ставку"
+    spans = find_spans(text, [("1", "org", "Банк России"), ("2", "loc", "России")])
+    assert len(spans) == 1
+
+
+def test_negation_flip_detected_but_style_allowed():
+    """Ирония добавляет «не» — это стиль. Пропавшее «не» у того же глагола — подлог."""
+    import datetime
+
+    from pipeline.facts.check import check, verdict
+
+    pub = datetime.datetime(2026, 8, 15)
+    orig = "Мельникова завоевала бронзу в Загребе. Результат составил 13,700 балла."
+    ironic = ("Мельникова, судя по всему, решила не отвлекаться по мелочам и завоевала бронзу "
+              "в Загребе. Результат — 13,700 балла, и это уже не сенсация.")
+    assert verdict(check(orig, ironic, pub)) == "PASS"
+
+    orig2 = "США и КНР не смогли договориться по тарифам."
+    flipped = "США и КНР смогли договориться по тарифам."
+    report = check(orig2, flipped, pub)
+    assert verdict(report) == "FAIL"
+    assert ("negation_dropped", "смочь") in report["neg_flips"]
+
+
+def test_find_spans_extends_truncated_quote_to_word_boundary():
+    """Цитаты приходят в отчёт обрезанными до 40 знаков — подсветка не должна рвать слово."""
+    from app.highlight import find_spans
+
+    text = "«В течение дня ударными беспилотными летательными аппаратами поражены склады»"
+    truncated = "В течение дня ударными беспилотными лета"
+    span = find_spans(text, [("q1", "quote", truncated)])[0]
+    assert text[span["start"]:span["end"]].endswith("летательными")
