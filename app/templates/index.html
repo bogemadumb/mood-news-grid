@@ -4,55 +4,66 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Mood News Grid</title>
-<style>
-  :root {
-    --bg: #fbf9f4; --ink: #17151a; --muted: #6b6570;
-    --line: #e3ddd2; --accent: #7a1f2b;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #14131a; --ink: #f0ece6; --muted: #9a93a0; --line: #2c2934; --accent: #d9808d; }
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--bg); color: var(--ink);
-    font: 16px/1.6 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
-    display: grid; place-items: center; min-height: 100dvh; padding: 24px;
-  }
-  main { max-width: 44rem; }
-  h1 { font-size: clamp(1.8rem, 5vw, 2.6rem); line-height: 1.15; margin: 0 0 .6rem; letter-spacing: -.02em; }
-  .lead { color: var(--muted); margin: 0 0 2rem; }
-  .stage { border: 1px solid var(--line); border-radius: 12px; padding: 1.2rem 1.4rem; }
-  .stage h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em;
-              color: var(--accent); margin: 0 0 .8rem; }
-  ol { margin: 0; padding-left: 1.2rem; }
-  li { margin: .25rem 0; }
-  li.done { color: var(--muted); text-decoration: line-through; }
-  footer { margin-top: 2rem; font-size: .85rem; color: var(--muted); }
-  a { color: var(--accent); }
-</style>
+<title>Mood News Grid — новости в разных эмоциональных режимах</title>
+<link rel="stylesheet" href="{{ url_for('static', path='/tokens.css') }}">
 </head>
 <body>
-<main>
-  <h1>Mood News Grid</h1>
-  <p class="lead">
-    Реальные новости, которые можно читать в разных эмоциональных режимах.
-    Факты при этом не меняются — и это проверяется автоматически, а не обещается на словах.
-  </p>
 
-  <div class="stage">
-    <h2>Стадия сборки</h2>
-    <ol>
-      <li class="done">Каркас, окружение, проверка источников</li>
-      <li>Сбор реальных новостей и грид</li>
-      <li>Переписывание тона и проверка сохранности фактов</li>
-      <li>Комплект сдачи: README, скриншоты, соответствие ТЗ</li>
-    </ol>
+<header class="site-head">
+  <div class="wrap head-row">
+    <div>
+      <h1>Mood News Grid</h1>
+      <p>
+        Настоящие новости из открытых лент. Скоро их можно будет читать в разных
+        эмоциональных режимах — а факты при этом останутся теми же, и это будет проверяться
+        автоматически, а не обещаться на словах.
+      </p>
+    </div>
+    <div class="counters">
+      <b>{{ c.showcase }}</b> новостей ·
+      <b>{{ c.sources_used }}</b> изданий ·
+      собрано {{ last_fetch }}
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div class="notice">
+    <b>Стадия сборки: этап 2 из 8.</b>
+    Сбор новостей, хранение и витрина готовы — карточки ниже настоящие, ссылки ведут
+    на оригиналы. Переключатель настроения и экран сравнения с проверкой фактов
+    появятся на следующем этапе.
   </div>
 
-  <footer>
-    Сборка {{ git_sha }} · <a href="https://bogemadumb.ru">bogemadumb.ru</a>
-  </footer>
+  <div class="grid">
+    {% for a in articles %}
+    <article class="card">
+      <div class="card-meta">
+        <span class="dot" style="background: hsl({{ a.hue }} 55% 45%)"></span>
+        <span class="src-name">{{ a.source_title }}</span>
+        {% if a.author %}<span>· {{ a.author }}</span>{% endif %}
+        <span>· {{ a.published_human }}</span>
+      </div>
+
+      <h2><a href="{{ a.url }}" target="_blank" rel="nofollow noopener">{{ a.title }}</a></h2>
+
+      <p class="lead">{{ a.lead }}</p>
+
+      <div class="card-foot">
+        <span class="badge">{{ a.source_len }} знаков</span>
+        <a href="{{ a.url }}" target="_blank" rel="nofollow noopener">Читать в источнике →</a>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+
 </main>
+
+<footer class="site-foot wrap">
+  <span>Сборка {{ git_sha }} · всего в базе {{ c.articles_total }} материалов</span>
+  <span><a href="https://bogemadumb.ru">bogemadumb.ru</a></span>
+</footer>
+
 </body>
 </html>

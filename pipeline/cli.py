@@ -104,6 +104,52 @@ def check_sources(verbose: bool = typer.Option(False, "--verbose", "-v")):
         typer.echo("Годный текст = длиннее 400 знаков и без маркеров юридического подвала.")
 
 
+@app.command("migrate")
+def migrate_cmd():
+    """Накатить миграции базы."""
+    from app.db import migrate
+
+    applied = migrate()
+    typer.echo(f"миграций накачено: {applied}")
+
+
+@app.command("ingest")
+def ingest_cmd(limit: int = typer.Option(40, help="сколько записей брать из каждой ленты")):
+    """Собрать свежие новости из лент в базу."""
+    from app.db import migrate
+    from pipeline.ingest import ingest
+
+    migrate()
+    stats = ingest(limit_per_source=limit)
+    typer.echo(
+        f"\nпросмотрено {stats['seen']}, сохранено {stats['saved']}, "
+        f"отсеяно гейтом {stats['rejected']}, повторов {stats['duplicates']}, "
+        f"ошибок {stats['errors']}"
+    )
+
+
+@app.command("curate")
+def curate_cmd(limit: int = typer.Option(30, help="сколько новостей держать в витрине")):
+    """Отобрать витрину из собранного."""
+    from pipeline.curate import curate
+
+    curate(limit=limit)
+
+
+@app.command("cycle")
+def cycle_cmd(limit: int = typer.Option(40)):
+    """Полный проход: собрать и отобрать."""
+    from app.db import migrate
+    from pipeline.curate import curate
+    from pipeline.ingest import ingest
+
+    migrate()
+    stats = ingest(limit_per_source=limit)
+    typer.echo("")
+    curate()
+    typer.echo(f"\nсобрано {stats['saved']}, отсеяно {stats['rejected']}, повторов {stats['duplicates']}")
+
+
 @app.command("check-robots")
 def check_robots():
     """Выкачать robots.txt каждого источника и показать, что там про нас."""

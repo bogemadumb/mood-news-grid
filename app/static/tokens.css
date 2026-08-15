@@ -1,0 +1,155 @@
+/* Палитра и типографика.
+
+   Закон трёх цветовых семантик, чтобы интерфейс не превратился в светофор:
+     1) цвет ИЗДАНИЯ  — только квадратик у названия источника;
+     2) цвет ТОНА     — появится на третьем этапе, строго в четырёх местах;
+     3) цвет ПРОВЕРКИ — зелёный/жёлтый/красный, только для статуса фактов.
+   Фон и текст не красятся ничем из этого никогда. */
+
+:root {
+  --bg:        #fbf9f4;
+  --surface:   #ffffff;
+  --ink:       #17151a;
+  --ink-soft:  #4a444f;
+  --muted:     #736c78;
+  --line:      #e5dfd4;
+  --accent:    #7a1f2b;
+
+  --pass:      #1f6b3a;
+  --warn:      #8a6212;
+  --fail:      #a3232f;
+
+  --radius:    14px;
+  --shadow:    0 1px 2px rgba(23,21,26,.05), 0 8px 24px -16px rgba(23,21,26,.25);
+  --maxw:      74rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:       #131218;
+    --surface:  #1b1a22;
+    --ink:      #f2eee8;
+    --ink-soft: #cdc6cf;
+    --muted:    #948d9c;
+    --line:     #2e2b37;
+    --accent:   #e0919c;
+
+    --pass:     #5fc98a;
+    --warn:     #e0b356;
+    --fail:     #ef8b93;
+    --shadow:   0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.6 ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--accent); }
+
+.wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 20px; }
+
+/* Шапка */
+.site-head { border-bottom: 1px solid var(--line); padding: 28px 0 22px; margin-bottom: 28px; }
+.site-head h1 {
+  margin: 0 0 .4rem;
+  font-size: clamp(1.6rem, 4vw, 2.3rem);
+  letter-spacing: -.025em;
+  line-height: 1.1;
+}
+.site-head p { margin: 0; color: var(--muted); max-width: 46rem; }
+.head-row { display: flex; flex-wrap: wrap; gap: 16px; align-items: baseline; justify-content: space-between; }
+.counters { color: var(--muted); font-size: .85rem; white-space: nowrap; }
+.counters b { color: var(--ink); font-weight: 600; }
+
+/* Грид */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr));
+  gap: 18px;
+  padding-bottom: 48px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: var(--shadow);
+  container-type: inline-size;
+}
+
+.card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: .78rem;
+  color: var(--muted);
+  letter-spacing: .01em;
+}
+.dot { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+.src-name { font-weight: 600; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .06em; font-size: .72rem; }
+
+.card h2 { margin: 0; font-size: 1.05rem; line-height: 1.32; letter-spacing: -.01em; }
+.card h2 a { color: inherit; text-decoration: none; }
+.card h2 a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+.card p.lead { margin: 0; color: var(--ink-soft); font-size: .92rem; line-height: 1.55; }
+
+.card-foot {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-size: .78rem;
+  color: var(--muted);
+}
+.card-foot a { text-decoration: none; font-weight: 600; }
+.card-foot a:hover { text-decoration: underline; }
+
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  border: 1px solid var(--line); border-radius: 999px;
+  padding: 2px 9px; font-size: .72rem; color: var(--muted);
+}
+
+/* Плашка «что здесь будет дальше» — честно про стадию сборки */
+.notice {
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 24px;
+  color: var(--ink-soft);
+  font-size: .9rem;
+  background: color-mix(in oklab, var(--surface) 70%, transparent);
+}
+.notice b { color: var(--ink); }
+
+.site-foot {
+  border-top: 1px solid var(--line);
+  padding: 20px 0 40px;
+  color: var(--muted);
+  font-size: .82rem;
+  display: flex; flex-wrap: wrap; gap: 10px 20px; justify-content: space-between;
+}
+
+@media (max-width: 460px) {
+  .grid { grid-template-columns: 1fr; gap: 14px; }
+  .wrap { padding: 0 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
