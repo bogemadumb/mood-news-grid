@@ -65,13 +65,23 @@ def make_lead(text: str | None, limit: int = 180) -> str:
     return cut[: space if space > 60 else limit].rstrip(" ,.;:—-") + "…"
 
 
+MIN_GRID = 6
+
+
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
+    # В ленту идут новости, у которых готовы все тона. Пока конвейер их не набрал,
+    # показываем и остальные, помечая, что они в очереди: пустая страница выглядела бы
+    # поломкой, а честная очередь — рабочим состоянием.
     articles = repository.showcase_articles()
+    ready_ids = {a["id"] for a in articles}
+    if len(articles) < MIN_GRID:
+        articles = repository.showcase_articles(only_ready=False)
     for a in articles:
         a["hue"] = source_hue(a["source_code"])
         a["published_human"] = human_time(a["published_at"])
         a["lead"] = make_lead(a["rewrite_source_text"])
+        a["is_ready"] = a["id"] in ready_ids
 
     counts = repository.counters()
     return templates.TemplateResponse(
