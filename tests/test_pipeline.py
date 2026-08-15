@@ -99,3 +99,22 @@ def test_long_sentence_ratio_separates_navigation_from_text():
 
 def test_strip_html_kills_scripts():
     assert "alert" not in strip_html("<p>Текст</p><script>alert(1)</script>")
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ({"value": "<p>Текст</p>"}, "Текст"),
+        ({"name": "Иван Витченко"}, "Иван Витченко"),
+        ([{"value": "<b>А</b>"}, {"value": "Б"}], "А Б"),
+        (None, ""),
+        (42, "42"),
+    ],
+)
+def test_strip_html_survives_feedparser_shapes(raw, expected):
+    """Ленты отдают одно и то же поле то строкой, то словарём, то списком словарей.
+
+    Ловится только на живых данных: у части записей Коммерсанта автор приходит словарём,
+    и первая версия сбора падала на них с TypeError посреди прогона.
+    """
+    assert strip_html(raw) == expected

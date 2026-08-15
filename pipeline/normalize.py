@@ -22,7 +22,17 @@ FOOTER_MARKERS = re.compile(
 )
 
 
-def strip_html(raw: str) -> str:
+def strip_html(raw) -> str:
+    # feedparser отдаёт часть полей то строкой, то словарём с ключом value,
+    # то списком таких словарей — зависит от того, как их разметило конкретное издание.
+    if not raw:
+        return ""
+    if isinstance(raw, dict):
+        raw = raw.get("value") or raw.get("name") or ""
+    elif isinstance(raw, list):
+        raw = " ".join(strip_html(item) for item in raw)
+    if not isinstance(raw, str):
+        raw = str(raw)
     if not raw:
         return ""
     text = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", raw, flags=re.S | re.I)
