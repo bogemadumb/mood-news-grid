@@ -334,7 +334,7 @@ def review(request: Request):
     return templates.TemplateResponse(request, "review.html", {
         "sample_id": ready[0]["id"] if ready else None,
         "refused_id": refused["id"] if refused else None,
-        "case_count": 17, "test_count": 47, "git_sha": settings.git_sha,
+        "case_count": 17, "test_count": 62, "git_sha": settings.git_sha,
     })
 
 
