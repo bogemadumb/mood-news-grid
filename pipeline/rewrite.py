@@ -75,8 +75,12 @@ def describe_violations(report: dict, style_distance: float, length_ratio: float
             out.append(f"пропало отрицание при сказуемом «{lemma}»: смысл перевернулся")
         else:
             out.append(f"добавлено отрицание при сказуемом «{lemma}», которого в оригинале не было")
-    for lemma in report["hedge_lost"]:
-        out.append(f"пропала осторожность: было «{lemma}», стало утверждение как факт")
+    human = {"возможность": "возможности («может», «вероятно»)",
+             "намерение": "намерения («планирует», «собирается»)",
+             "ожидание": "ожидания («ожидается», «прогнозируется»)"}
+    for group in report["hedge_lost"]:
+        out.append(f"предположение превратилось в утверждение: пропали все слова "
+                   f"со значением {human.get(group, group)}")
     for lemma in report["boost_added"]:
         out.append(f"добавлено усиление, которого не было: «{lemma}»")
     if style_distance < style_min:

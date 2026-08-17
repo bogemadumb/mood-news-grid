@@ -9,7 +9,7 @@ from rapidfuzz import fuzz
 
 from .fc import (
     BOOST,
-    HEDGE,
+    HEDGE_GROUPS,
     aliases_of,
     contains_seq,
     extract_dates,
@@ -264,7 +264,13 @@ def check(orig_text, new_text, published_at):
     #   2) отрицание появилось у глагола, который в оригинале шёл без него.
     # Отрицание при новом глаголе, которого в оригинале не было, — стилистика.
     neg_flips = negation_flips(O, N)
-    hedge_lost = sorted((HEDGE & O['lemmas']) - N['lemmas'])
+    # Хедж считается потерянным, только если из его смысловой группы не осталось ничего.
+    hedge_lost = []
+    for group, words in HEDGE_GROUPS.items():
+        had, has = words & O['lemmas'], words & N['lemmas']
+        if had and not has:
+            hedge_lost.append(group)
+    hedge_lost = sorted(hedge_lost)
     boost_added = sorted((BOOST & N['lemmas']) - O['lemmas'])
     # Площадка, на которой сделано заявление («сообщил в своём канале в „Максе“»),
     # это канал публикации, а не суть новости. Её пропажа — замечание, а не блокировка.
